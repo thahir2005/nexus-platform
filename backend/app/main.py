@@ -8,6 +8,7 @@ from app.api.blueprint import router as blueprint_router
 from app.api.build_plan import router as build_plan_router
 from app.api.docker_build import router as docker_build_router
 from app.api.docker_validation import router as docker_validation_router
+from app.api.build_pipeline import router as build_pipeline_router
 
 app = FastAPI(
     title="NEXUS Platform API",
@@ -57,6 +58,11 @@ app.include_router(
 
 app.include_router(
     docker_validation_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    build_pipeline_router,
     prefix="/api/v1",
 )
 
