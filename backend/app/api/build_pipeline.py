@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.db.session import SessionLocal
+from app.models.project import Project
 from app.schemas.build_pipeline import (
     BuildPipelineRequest,
     BuildPipelineResponse,
@@ -12,15 +15,34 @@ router = APIRouter(
 )
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @router.post(
     "/pipeline",
     response_model=BuildPipelineResponse,
 )
 def docker_pipeline(
     request: BuildPipelineRequest,
+    db: Session = Depends(get_db),
 ):
+    project = db.get(Project, request.project_id)
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
     try:
         result = run_build_pipeline(
+            db=db,
+            project_id=project.id,
             repository_path=request.repository_path,
             image_name=request.image_name,
         )
@@ -38,4 +60,5 @@ def docker_pipeline(
         architecture=result.architecture,
         os=result.os,
         message=result.message,
+        build_id=result.build_id,
     )
