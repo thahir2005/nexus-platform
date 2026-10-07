@@ -67,3 +67,10 @@ class KubernetesDeploymentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class KubernetesDeploymentStatusResponse(BaseModel):
+    deployment_id: int
+    status: str
+    desired_replicas: int
+    ready_replicas: int
+    available_replicas: int
