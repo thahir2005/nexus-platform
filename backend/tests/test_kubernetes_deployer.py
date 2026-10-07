@@ -4,6 +4,11 @@ from kubernetes.client.exceptions import ApiException
 
 from app.services.kubernetes_deployer import deploy_application
 
+from app.services.kubernetes_deployer import (
+    deploy_application,
+    get_deployment_status,
+)
+
 
 def test_deploy_creates_resources():
     apps_api = MagicMock()
@@ -68,3 +73,93 @@ def test_deploy_updates_existing_resources():
     assert "updated" in result.message
     apps_api.patch_namespaced_deployment.assert_called_once()
     core_api.patch_namespaced_service.assert_called_once()
+
+
+def test_get_deployment_status_running():
+    apps_api = MagicMock()
+
+    deployment = MagicMock()
+    deployment.spec.replicas = 1
+    deployment.status.ready_replicas = 1
+    deployment.status.available_replicas = 1
+
+    apps_api.read_namespaced_deployment.return_value = deployment
+
+    with (
+        patch(
+            "app.services.kubernetes_deployer.config.load_kube_config"
+        ),
+        patch(
+            "app.services.kubernetes_deployer.client.AppsV1Api",
+            return_value=apps_api,
+        ),
+    ):
+        result = get_deployment_status(
+            application_name="test-api",
+            namespace="nexus",
+        )
+
+    assert result["status"] == "running"
+    assert result["desired_replicas"] == 1
+    assert result["ready_replicas"] == 1
+    assert result["available_replicas"] == 1
+
+    apps_api.read_namespaced_deployment.assert_called_once_with(
+        name="test-api",
+        namespace="nexus",
+    )
+
+
+def test_get_deployment_status_pending():
+    apps_api = MagicMock()
+
+    deployment = MagicMock()
+    deployment.spec.replicas = 1
+    deployment.status.ready_replicas = 0
+    deployment.status.available_replicas = 0
+
+    apps_api.read_namespaced_deployment.return_value = deployment
+
+    with (
+        patch(
+            "app.services.kubernetes_deployer.config.load_kube_config"
+        ),
+        patch(
+            "app.services.kubernetes_deployer.client.AppsV1Api",
+            return_value=apps_api,
+        ),
+    ):
+        result = get_deployment_status(
+            application_name="test-api",
+            namespace="nexus",
+        )
+
+    assert result["status"] == "pending"
+    assert result["desired_replicas"] == 1
+    assert result["ready_replicas"] == 0
+    assert result["available_replicas"] == 0
+
+
+def test_get_deployment_status_not_found():
+    apps_api = MagicMock()
+
+    not_found = ApiException(status=404, reason="NotFound")
+    apps_api.read_namespaced_deployment.side_effect = not_found
+
+    with (
+        patch(
+            "app.services.kubernetes_deployer.config.load_kube_config"
+        ),
+        patch(
+            "app.services.kubernetes_deployer.client.AppsV1Api",
+            return_value=apps_api,
+        ),
+    ):
+        try:
+            get_deployment_status(
+                application_name="missing-api",
+                namespace="nexus",
+            )
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert str(exc) == "Kubernetes deployment not found"
