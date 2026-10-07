@@ -12,12 +12,14 @@ from app.api.build_pipeline import router as build_pipeline_router
 from app.api import builds
 from app.api import security_scans
 from app.api import kubernetes
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(
     title="NEXUS Platform API",
     description="Student Developer Platform Control Plane",
     version="0.1.0",
 )
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(
     projects_router,
