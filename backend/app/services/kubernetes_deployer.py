@@ -167,3 +167,94 @@ def get_deployment_status(
         "ready_replicas": ready_replicas,
         "available_replicas": available_replicas,
     }
+
+def get_pod_health(
+    application_name: str,
+    namespace: str = "nexus",
+) -> dict:
+    config.load_kube_config()
+
+    core_api = client.CoreV1Api()
+
+    try:
+        pods = core_api.list_namespaced_pod(
+            namespace=namespace,
+            label_selector=f"app={application_name}",
+        )
+    except ApiException as exc:
+        if exc.status == 404:
+            raise ValueError(
+                "Kubernetes namespace not found"
+            ) from exc
+
+        raise ValueError(
+            f"Unable to read Kubernetes pods: {exc.reason}"
+        ) from exc
+
+    pod_details = []
+
+    for pod in pods.items:
+        phase = pod.status.phase or "Unknown"
+
+        ready = False
+        if pod.status.container_statuses:
+            ready = all(
+                container.ready
+                for container in pod.status.container_statuses
+            )
+
+        restart_count = 0
+        if pod.status.container_statuses:
+            restart_count = sum(
+                container.restart_count or 0
+                for container in pod.status.container_statuses
+            )
+
+        reason = None
+
+        if pod.status.container_statuses:
+            for container in pod.status.container_statuses:
+                state = container.state
+
+                if state and state.waiting:
+                    reason = state.waiting.reason
+                    break
+
+                if state and state.terminated:
+                    reason = state.terminated.reason
+                    break
+
+        pod_details.append(
+            {
+                "name": pod.metadata.name,
+                "status": phase,
+                "ready": ready,
+                "restart_count": restart_count,
+                "reason": reason,
+            }
+        )
+
+    healthy_pods = sum(
+        1
+        for pod in pod_details
+        if pod["status"] == "Running" and pod["ready"]
+    )
+
+    unhealthy_pods = len(pod_details) - healthy_pods
+
+    if not pod_details:
+        health_status = "no_pods"
+    elif unhealthy_pods == 0:
+        health_status = "healthy"
+    elif healthy_pods > 0:
+        health_status = "degraded"
+    else:
+        health_status = "unhealthy"
+
+    return {
+        "status": health_status,
+        "pod_count": len(pod_details),
+        "healthy_pods": healthy_pods,
+        "unhealthy_pods": unhealthy_pods,
+        "pods": pod_details,
+    }
