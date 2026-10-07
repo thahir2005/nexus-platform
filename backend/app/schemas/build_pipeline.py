@@ -16,3 +16,7 @@ class BuildPipelineResponse(BaseModel):
     architecture: str | None
     os: str | None
     message: str
+    security_status: str
+    high_count: int
+    critical_count: int
+    security_scan_id: int | None

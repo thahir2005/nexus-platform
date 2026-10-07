@@ -61,4 +61,8 @@ def docker_pipeline(
         os=result.os,
         message=result.message,
         build_id=result.build_id,
+        security_status=result.security_status,
+        high_count=result.high_count,
+        critical_count=result.critical_count,
+        security_scan_id=result.security_scan_id,
     )
