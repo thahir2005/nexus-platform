@@ -1,5 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.db.session import SessionLocal
+from app.models.kubernetes_deployment import KubernetesDeployment
+from app.models.project import Project
 from app.schemas.deployment import (
     KubernetesDeployRequest,
     KubernetesDeployResponse,
@@ -13,6 +17,14 @@ router = APIRouter(
 )
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @router.post(
     "/projects/{project_id}/deploy",
     response_model=KubernetesDeployResponse,
@@ -20,13 +32,35 @@ router = APIRouter(
 def deploy_project(
     project_id: int,
     request: KubernetesDeployRequest,
+    db: Session = Depends(get_db),
 ):
+    project = db.get(Project, project_id)
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
     result = deploy_application(
         image_name=request.image_name,
         application_name=request.application_name,
         namespace=request.namespace,
         replicas=request.replicas,
     )
+
+    deployment = KubernetesDeployment(
+        project_id=project_id,
+        image_name=request.image_name,
+        application_name=result.deployment_name,
+        namespace=result.namespace,
+        replicas=request.replicas,
+        status=result.status,
+    )
+
+    db.add(deployment)
+    db.commit()
+    db.refresh(deployment)
 
     return KubernetesDeployResponse(
         status=result.status,
