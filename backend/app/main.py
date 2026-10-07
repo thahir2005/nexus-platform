@@ -11,6 +11,7 @@ from app.api.docker_validation import router as docker_validation_router
 from app.api.build_pipeline import router as build_pipeline_router
 from app.api import builds
 from app.api import security_scans
+from app.api import kubernetes
 
 app = FastAPI(
     title="NEXUS Platform API",
@@ -71,6 +72,8 @@ app.include_router(
 app.include_router(builds.router, prefix="/api/v1")
 
 app.include_router(security_scans.router)
+
+app.include_router(kubernetes.router)
 
 
 @app.get("/")

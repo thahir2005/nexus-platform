@@ -28,3 +28,29 @@ class DeploymentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class KubernetesDeployRequest(BaseModel):
+
+    image_name: str
+
+    application_name: str
+
+    namespace: str = "nexus"
+
+    replicas: int = 1
+
+class KubernetesDeployResponse(BaseModel):
+
+    status: str
+
+    project_id: int
+
+    namespace: str
+
+    deployment_name: str
+
+    service_name: str
+
+    replicas: int
+
+    message: str
