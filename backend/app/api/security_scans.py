@@ -49,3 +49,48 @@ def run_security_scan(
     db.refresh(scan)
 
     return scan
+
+
+@router.get(
+    "/projects/{project_id}/security-scans",
+    response_model=list[SecurityScanResponse],
+)
+def get_security_scan_history(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    scans = (
+        db.query(SecurityScan)
+        .filter(SecurityScan.project_id == project_id)
+        .order_by(SecurityScan.created_at.desc())
+        .all()
+    )
+
+    return scans
+
+
+@router.get(
+    "/projects/{project_id}/security-scans/{scan_id}",
+    response_model=SecurityScanResponse,
+)
+def get_security_scan(
+    project_id: int,
+    scan_id: int,
+    db: Session = Depends(get_db),
+):
+    scan = (
+        db.query(SecurityScan)
+        .filter(
+            SecurityScan.id == scan_id,
+            SecurityScan.project_id == project_id,
+        )
+        .first()
+    )
+
+    if scan is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Security scan not found",
+        )
+
+    return scan
