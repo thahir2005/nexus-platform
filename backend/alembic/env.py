@@ -9,7 +9,9 @@ from app.models import (
     Build,
     Deployment,
     Environment,
+    KubernetesDeployment,
     Project,
+    SecurityScan,
     User,
 )
 
