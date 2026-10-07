@@ -12,12 +12,21 @@ from app.schemas.deployment import (
 from app.services.kubernetes_deployer import (
     deploy_application,
     get_deployment_status,
+    get_pod_health,
 )
 from app.schemas.deployment import (
     KubernetesDeployRequest,
     KubernetesDeployResponse,
     KubernetesDeploymentResponse,
     KubernetesDeploymentStatusResponse,
+)
+
+from app.schemas.deployment import (
+    KubernetesDeployRequest,
+    KubernetesDeployResponse,
+    KubernetesDeploymentResponse,
+    KubernetesDeploymentStatusResponse,
+    KubernetesDeploymentHealthResponse,
 )
 
 
@@ -149,4 +158,43 @@ def get_project_deployment_status(
         desired_replicas=result["desired_replicas"],
         ready_replicas=result["ready_replicas"],
         available_replicas=result["available_replicas"],
+    )
+
+@router.get(
+    "/projects/{project_id}/deployments/{deployment_id}/health",
+    response_model=KubernetesDeploymentHealthResponse,
+)
+def get_project_deployment_health(
+    project_id: int,
+    deployment_id: int,
+    db: Session = Depends(get_db),
+):
+    project = db.get(Project, project_id)
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    deployment = db.get(KubernetesDeployment, deployment_id)
+
+    if deployment is None or deployment.project_id != project_id:
+        raise HTTPException(
+            status_code=404,
+            detail="Deployment not found",
+        )
+
+    result = get_pod_health(
+        application_name=deployment.application_name,
+        namespace=deployment.namespace,
+    )
+
+    return KubernetesDeploymentHealthResponse(
+        deployment_id=deployment.id,
+        status=result["status"],
+        pod_count=result["pod_count"],
+        healthy_pods=result["healthy_pods"],
+        unhealthy_pods=result["unhealthy_pods"],
+        pods=result["pods"],
     )

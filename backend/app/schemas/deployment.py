@@ -74,3 +74,11 @@ class KubernetesDeploymentStatusResponse(BaseModel):
     desired_replicas: int
     ready_replicas: int
     available_replicas: int
+
+class KubernetesDeploymentHealthResponse(BaseModel):
+    deployment_id: int
+    status: str
+    pod_count: int
+    healthy_pods: int
+    unhealthy_pods: int
+    pods: list[dict]
