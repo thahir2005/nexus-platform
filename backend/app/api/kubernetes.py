@@ -7,6 +7,7 @@ from app.models.project import Project
 from app.schemas.deployment import (
     KubernetesDeployRequest,
     KubernetesDeployResponse,
+    KubernetesDeploymentResponse,
 )
 from app.services.kubernetes_deployer import deploy_application
 
@@ -71,3 +72,29 @@ def deploy_project(
         replicas=request.replicas,
         message=result.message,
     )
+
+
+@router.get(
+    "/projects/{project_id}/deployments",
+    response_model=list[KubernetesDeploymentResponse],
+)
+def get_project_deployments(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    project = db.get(Project, project_id)
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    deployments = (
+        db.query(KubernetesDeployment)
+        .filter(KubernetesDeployment.project_id == project_id)
+        .order_by(KubernetesDeployment.created_at.desc())
+        .all()
+    )
+
+    return deployments

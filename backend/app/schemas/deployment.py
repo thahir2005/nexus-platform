@@ -54,3 +54,16 @@ class KubernetesDeployResponse(BaseModel):
     replicas: int
 
     message: str
+
+class KubernetesDeploymentResponse(BaseModel):
+    id: int
+    project_id: int
+    environment_id: int | None
+    image_name: str
+    application_name: str
+    namespace: str
+    replicas: int
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
