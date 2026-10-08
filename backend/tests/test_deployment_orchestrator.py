@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.services import deployment_orchestrator
+from app.models.deployment_pipeline_run import DeploymentPipelineRun
 
 
 def test_orchestrator_blocks_deployment_when_build_pipeline_fails(monkeypatch):
@@ -106,6 +107,15 @@ def test_orchestrator_deploys_after_successful_build(monkeypatch):
     assert result.service_name == "test-app"
     assert result.namespace == "nexus"
 
-    db.add.assert_called_once()
-    db.commit.assert_called_once()
+    assert db.add.call_count == 2
+    added_objects = [
+        call.args[0]
+        for call in db.add.call_args_list
+    ]    
+    assert any(
+        isinstance(obj, DeploymentPipelineRun)
+        for obj in added_objects
+
+    )
+    assert db.commit.call_count == 2
     db.refresh.assert_called_once()

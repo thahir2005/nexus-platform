@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.build import Build
 from app.models.security_scan import SecurityScan
 from app.models.kubernetes_deployment import KubernetesDeployment
+from app.models.deployment_pipeline_run import DeploymentPipelineRun
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "Build",
     "SecurityScan",
     "KubernetesDeployment",
+    "DeploymentPipelineRun",
 ]
