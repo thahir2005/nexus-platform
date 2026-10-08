@@ -660,6 +660,98 @@ function ProjectDetail() {
         </div>
       </div>
 
+            {history.length > 0 && (
+        <div className="project-status-grid">
+          <div className="card project-status-card">
+            <div className="card-header">
+              <div>
+                <span className="eyebrow">LATEST PIPELINE</span>
+                <h2>Pipeline #{history[0].id}</h2>
+              </div>
+
+              <StatusBadge status={history[0].status} />
+            </div>
+
+            <div className="pipeline-mini">
+              <div>
+                <span>Build</span>
+                <StatusBadge status={history[0].build_status} />
+              </div>
+
+              <div>
+                <span>Validation</span>
+                <StatusBadge status={history[0].validation_status} />
+              </div>
+
+              <div>
+                <span>Security</span>
+                <StatusBadge status={history[0].security_status} />
+              </div>
+
+              <div>
+                <span>Deployment</span>
+                <StatusBadge
+                  status={
+                    history[0].deployment_id
+                      ? "success"
+                      : "not released"
+                  }
+                />
+              </div>
+            </div>
+
+            <p className="muted project-status-message">
+              {history[0].message}
+            </p>
+          </div>
+
+          <div className="card project-status-card">
+            <div className="card-header">
+              <div>
+                <span className="eyebrow">SECURITY</span>
+                <h2>Latest Security Gate</h2>
+              </div>
+
+              <ShieldAlert size={20} />
+            </div>
+
+            <div className="security-summary-grid">
+              <div>
+                <span>High</span>
+                <strong
+                  className={
+                    history[0].high_count > 0
+                      ? "danger-text"
+                      : ""
+                  }
+                >
+                  {history[0].high_count}
+                </strong>
+              </div>
+
+              <div>
+                <span>Critical</span>
+                <strong
+                  className={
+                    history[0].critical_count > 0
+                      ? "danger-text"
+                      : ""
+                  }
+                >
+                  {history[0].critical_count}
+                </strong>
+              </div>
+            </div>
+
+            <p className="muted project-status-message">
+              {history[0].security_status === "blocked"
+                ? "Deployment was protected by the security gate."
+                : "No security gate block was recorded."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="section-heading">
         <div>
           <h2>Environments</h2>
@@ -667,6 +759,8 @@ function ProjectDetail() {
             Choose an environment to deploy this project.
           </p>
         </div>
+
+      
       </div>
 
       <div className="environment-grid">
