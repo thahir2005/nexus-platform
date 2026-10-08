@@ -7,26 +7,14 @@ from app.models.project import Project
 from app.schemas.deployment import (
     KubernetesDeployRequest,
     KubernetesDeployResponse,
+    KubernetesDeploymentHealthResponse,
     KubernetesDeploymentResponse,
+    KubernetesDeploymentStatusResponse,
 )
 from app.services.kubernetes_deployer import (
     deploy_application,
     get_deployment_status,
     get_pod_health,
-)
-from app.schemas.deployment import (
-    KubernetesDeployRequest,
-    KubernetesDeployResponse,
-    KubernetesDeploymentResponse,
-    KubernetesDeploymentStatusResponse,
-)
-
-from app.schemas.deployment import (
-    KubernetesDeployRequest,
-    KubernetesDeployResponse,
-    KubernetesDeploymentResponse,
-    KubernetesDeploymentStatusResponse,
-    KubernetesDeploymentHealthResponse,
 )
 
 
