@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app.services.deployment_rollback import rollback_deployment
 
 from app.db.session import SessionLocal
 from app.models.kubernetes_deployment import KubernetesDeployment
@@ -104,6 +105,35 @@ def get_project_deployments(
     )
 
     return deployments
+
+@router.post(
+    "/projects/{project_id}/deployments/{deployment_id}/rollback",
+)
+def rollback_project_deployment(
+    project_id: int,
+    deployment_id: int,
+    db: Session = Depends(get_db),
+):
+    project = db.get(Project, project_id)
+
+    if project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    try:
+        return rollback_deployment(
+            db=db,
+            project_id=project_id,
+            deployment_id=deployment_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    
 
 @router.get(
     "/projects/{project_id}/deployments/{deployment_id}/status",

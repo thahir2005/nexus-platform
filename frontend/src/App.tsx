@@ -1293,6 +1293,65 @@ function Environments() {
   );
 }
 
+function DeploymentCard({
+  deployment,
+  onRollback,
+}: {
+  deployment: KubernetesDeployment;
+  onRollback: () => Promise<void>;
+}) {
+  const [rollingBack, setRollingBack] = useState(false);
+
+  const handleRollback = async () => {
+    setRollingBack(true);
+
+    try {
+      await onRollback();
+    } finally {
+      setRollingBack(false);
+    }
+  };
+
+  return (
+    <div className="card project-card">
+      <Activity size={22} />
+
+      <h2>{deployment.application_name}</h2>
+
+      <p className="muted">
+        Image: {deployment.image_name}
+      </p>
+
+      <p className="muted">
+        Namespace: {deployment.namespace}
+      </p>
+
+      <div className="project-meta">
+        <span>
+          {deployment.replicas} replica
+          {deployment.replicas !== 1 ? "s" : ""}
+        </span>
+
+        <StatusBadge status={deployment.status} />
+      </div>
+
+      {deployment.rollback_of_id && (
+        <p className="muted">
+          Rollback of deployment #{deployment.rollback_of_id}
+        </p>
+      )}
+
+      <button
+        className="deploy-button"
+        onClick={handleRollback}
+        disabled={rollingBack}
+      >
+        {rollingBack ? "Rolling back..." : "Rollback"}
+      </button>
+    </div>
+  );
+}
+
 function Monitoring() {
   const [deployments, setDeployments] =
     useState<KubernetesDeployment[]>([]);
@@ -1319,27 +1378,39 @@ function Monitoring() {
       </div>
 
       <div className="project-grid">
-        {deployments.map((deployment) => (
-          <div className="card project-card" key={deployment.id}>
-            <Activity size={22} />
-            <h2>{deployment.application_name}</h2>
+                {deployments.map((deployment) => (
+          <DeploymentCard
+            key={deployment.id}
+            deployment={deployment}
+            onRollback={async () => {
+              const confirmed = window.confirm(
+                `Rollback deployment #${deployment.id} to the previous successful deployment?`,
+              );
 
-            <p className="muted">
-              Image: {deployment.image_name}
-            </p>
+              if (!confirmed) return;
 
-            <p className="muted">
-              Namespace: {deployment.namespace}
-            </p>
+              try {
+                const result = await api.rollback(
+                  DEFAULT_PROJECT_ID,
+                  deployment.id,
+                );
 
-            <div className="project-meta">
-              <span>
-                {deployment.replicas} replica
-              </span>
+                window.alert(result.message);
 
-              <StatusBadge status={deployment.status} />
-            </div>
-          </div>
+                const refreshed = await api.deployments(
+                  DEFAULT_PROJECT_ID,
+                );
+
+                setDeployments(refreshed);
+              } catch (error) {
+                window.alert(
+                  error instanceof Error
+                    ? error.message
+                    : "Rollback failed",
+                );
+              }
+            }}
+          />
         ))}
       </div>
     </>

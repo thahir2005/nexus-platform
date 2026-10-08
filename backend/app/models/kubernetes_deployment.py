@@ -48,6 +48,12 @@ class KubernetesDeployment(Base):
         nullable=False,
     )
 
+    rollback_of_id: Mapped[int | None] = mapped_column(
+        ForeignKey("kubernetes_deployments.id"),
+        nullable=True,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -56,3 +62,7 @@ class KubernetesDeployment(Base):
 
     project = relationship("Project")
     environment = relationship("Environment")
+    rollback_of = relationship(
+        "KubernetesDeployment",
+        remote_side=[id],
+    )

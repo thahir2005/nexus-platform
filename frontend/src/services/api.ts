@@ -46,6 +46,7 @@ export type KubernetesDeployment = {
   namespace: string;
   replicas: number;
   status: string;
+  rollback_of_id: number | null;
   created_at: string;
 };
 
@@ -148,6 +149,20 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data;
 }
 
+export type RollbackResponse = {
+  status: string;
+  project_id: number;
+  environment_id: number;
+  deployment_id: number;
+  rollback_of_id: number;
+  image_name: string;
+  deployment_name: string;
+  service_name: string;
+  namespace: string;
+  replicas: number;
+  message: string;
+};
+
 export const api = {
   projects: () => get<Project[]>("/projects"),
 
@@ -165,6 +180,12 @@ export const api = {
   deployments: (projectId: number) =>
     get<KubernetesDeployment[]>(
       `/projects/${projectId}/deployments`,
+    ),
+
+    rollback: (projectId: number, deploymentId: number) =>
+    post<RollbackResponse>(
+      `/projects/${projectId}/deployments/${deploymentId}/rollback`,
+      {},
     ),
 
   securityScans: (projectId: number) =>
