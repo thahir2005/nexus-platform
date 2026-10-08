@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-nexus-safe-demo
+  namespace: nexus
+  labels:
+    app: nexus-nexus-safe-demo
+  annotations:
+    nexus.io/build-id: "66"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-nexus-safe-demo
+  template:
+    metadata:
+      labels:
+        app: nexus-nexus-safe-demo
+      annotations:
+        nexus.io/build-id: "66"
+    spec:
+      containers:
+        - name: app
+          image: nexus/nexus-safe-demo
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-nexus-safe-demo
+  namespace: nexus
+spec:
+  selector:
+    app: nexus-nexus-safe-demo
+  ports:
+    - port: 8000
+      targetPort: 8000
