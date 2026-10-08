@@ -2,11 +2,19 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.deployment_pipeline_run import DeploymentPipelineRun
+from app.models.environment import Environment
 from app.models.kubernetes_deployment import KubernetesDeployment
+from app.models.project import Project
 from app.services.build_pipeline import run_build_pipeline
-from app.services.kubernetes_deployer import deploy_application
 from app.services.build_preparation import prepare_build_context
+from app.services.gitops_publisher import GitOpsPublisher
+from app.services.kubernetes_deployer import deploy_application
+from app.services.kubernetes_deployer import (
+    deploy_application,
+    load_local_image_into_minikube,
+)
 
 
 @dataclass
@@ -94,6 +102,126 @@ def run_deployment_pipeline(
             message=f"Deployment blocked: {build_result.message}",
         )
 
+    project = db.get(Project, project_id)
+    environment = db.get(Environment, environment_id)
+
+    if project is None or environment is None:
+        raise ValueError("Project or environment not found")
+
+    # GitOps deployment mode.
+    if settings.gitops_enabled:
+        try:
+            load_local_image_into_minikube(image_name)
+            gitops_result = GitOpsPublisher().publish(
+                project_name=project.name,
+                environment_name=environment.name,
+                application_name=application_name,
+                image_name=image_name,
+                namespace=namespace,
+                replicas=replicas,
+                build_id=build_result.build_id,
+            )
+        except Exception as exc:
+            gitops_result = None
+            gitops_error = str(exc)
+        else:
+            gitops_error = gitops_result.message
+
+        if gitops_result is None or gitops_result.status == "failed":
+            pipeline_run = DeploymentPipelineRun(
+                project_id=project_id,
+                environment_id=environment_id,
+                repository_path=repository_path,
+                image_name=image_name,
+                application_name=application_name,
+                namespace=namespace,
+                replicas=replicas,
+                build_id=build_result.build_id,
+                security_scan_id=build_result.security_scan_id,
+                deployment_id=None,
+                status="failed",
+                build_status=build_result.build_status,
+                validation_status=build_result.validation_status,
+                security_status=build_result.security_status,
+                high_count=build_result.high_count,
+                critical_count=build_result.critical_count,
+                message=f"GitOps deployment failed: {gitops_error}",
+            )
+
+            db.add(pipeline_run)
+            db.commit()
+
+            return DeploymentPipelineResult(
+                status="failed",
+                project_id=project_id,
+                environment_id=environment_id,
+                image_name=image_name,
+                build_id=build_result.build_id,
+                security_scan_id=build_result.security_scan_id,
+                deployment_id=None,
+                deployment_name=None,
+                service_name=None,
+                namespace=namespace,
+                replicas=replicas,
+                build_status=build_result.build_status,
+                validation_status=build_result.validation_status,
+                security_status=build_result.security_status,
+                high_count=build_result.high_count,
+                critical_count=build_result.critical_count,
+                message=f"GitOps deployment failed: {gitops_error}",
+            )
+
+        pipeline_run = DeploymentPipelineRun(
+            project_id=project_id,
+            environment_id=environment_id,
+            repository_path=repository_path,
+            image_name=image_name,
+            application_name=application_name,
+            namespace=namespace,
+            replicas=replicas,
+            build_id=build_result.build_id,
+            security_scan_id=build_result.security_scan_id,
+            deployment_id=None,
+            status="gitops_pending",
+            build_status=build_result.build_status,
+            validation_status=build_result.validation_status,
+            security_status=build_result.security_status,
+            high_count=build_result.high_count,
+            critical_count=build_result.critical_count,
+            message=(
+                f"GitOps published: {gitops_result.message}; "
+                f"revision={gitops_result.revision}"
+            ),
+        )
+
+        db.add(pipeline_run)
+        db.commit()
+
+        return DeploymentPipelineResult(
+            status="gitops_pending",
+            project_id=project_id,
+            environment_id=environment_id,
+            image_name=image_name,
+            build_id=build_result.build_id,
+            security_scan_id=build_result.security_scan_id,
+            deployment_id=None,
+            deployment_name=application_name,
+            service_name=application_name,
+            namespace=namespace,
+            replicas=replicas,
+            build_status=build_result.build_status,
+            validation_status=build_result.validation_status,
+            security_status=build_result.security_status,
+            high_count=build_result.high_count,
+            critical_count=build_result.critical_count,
+            message=(
+                f"GitOps published successfully; "
+                f"Argo CD will reconcile revision "
+                f"{gitops_result.revision}"
+            ),
+        )
+
+    # Existing direct Kubernetes deployment mode.
     try:
         deployment_result = deploy_application(
             image_name=image_name,

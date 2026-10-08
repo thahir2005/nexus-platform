@@ -21,7 +21,7 @@ def test_deploy_creates_resources():
             "app.services.kubernetes_deployer.config.load_kube_config"
         ),
         patch(
-            "app.services.kubernetes_deployer._load_local_image_into_minikube"
+            "app.services.kubernetes_deployer.load_local_image_into_minikube"
         ),
         patch(
             "app.services.kubernetes_deployer.client.AppsV1Api",
@@ -62,7 +62,7 @@ def test_deploy_updates_existing_resources():
             "app.services.kubernetes_deployer.config.load_kube_config"
         ),
         patch(
-            "app.services.kubernetes_deployer._load_local_image_into_minikube"
+            "app.services.kubernetes_deployer.load_local_image_into_minikube"
         ),
         patch(
             "app.services.kubernetes_deployer.client.AppsV1Api",

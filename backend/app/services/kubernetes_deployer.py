@@ -15,7 +15,7 @@ class KubernetesDeploymentResult:
     message: str
 
 
-def _load_local_image_into_minikube(image_name: str) -> None:
+def load_local_image_into_minikube(image_name: str) -> None:
     try:
         context = subprocess.run(
             ["kubectl", "config", "current-context"],
@@ -117,7 +117,7 @@ def deploy_application(
     # NEXUS is currently local-first and uses Minikube.
     # Make the locally built image available to the Kubernetes node
     # before creating the workload.
-    _load_local_image_into_minikube(image_name)
+    load_local_image_into_minikube(image_name)
 
     deployment = client.V1Deployment(
         metadata=client.V1ObjectMeta(
