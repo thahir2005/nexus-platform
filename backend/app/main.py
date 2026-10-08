@@ -13,6 +13,7 @@ from app.api import builds
 from app.api import security_scans
 from app.api import kubernetes
 from prometheus_fastapi_instrumentator import Instrumentator
+from app.api.deployment_pipeline import router as deployment_pipeline_router
 
 app = FastAPI(
     title="NEXUS Platform API",
@@ -76,6 +77,8 @@ app.include_router(builds.router, prefix="/api/v1")
 app.include_router(security_scans.router)
 
 app.include_router(kubernetes.router)
+
+app.include_router(deployment_pipeline_router)
 
 
 @app.get("/")
