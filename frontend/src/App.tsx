@@ -1377,8 +1377,8 @@ function Monitoring() {
         </div>
       </div>
 
-      <div className="project-grid">
-                {deployments.map((deployment) => (
+            <div className="project-grid">
+              {deployments.map((deployment) => (
           <DeploymentCard
             key={deployment.id}
             deployment={deployment}
