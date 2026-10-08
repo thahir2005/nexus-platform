@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class DeploymentPipelineHistoryResponse(BaseModel):
     id: int
     project_id: int
+    environment_id: int
     repository_path: str
     image_name: str
     application_name: str

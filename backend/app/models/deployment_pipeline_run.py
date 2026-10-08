@@ -23,6 +23,12 @@ class DeploymentPipelineRun(Base):
 
     )
 
+    environment_id: Mapped[int] = mapped_column(
+        ForeignKey("environments.id"),
+        nullable=False,
+        index=True,
+    )
+
     repository_path: Mapped[str] = mapped_column(
 
         String(500),
@@ -164,6 +170,7 @@ class DeploymentPipelineRun(Base):
     )
 
     project = relationship("Project")
+    environment = relationship("Environment")
 
     build = relationship("Build")
 

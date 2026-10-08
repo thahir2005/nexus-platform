@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.models.environment import Environment
 from app.models.project import Project
 from app.schemas.deployment_pipeline import (
     DeploymentPipelineRequest,
@@ -41,10 +42,19 @@ def deploy_pipeline(
             detail="Project not found",
         )
 
+    environment = db.get(Environment, request.environment_id)
+
+    if environment is None or environment.project_id != project_id:
+        raise HTTPException(
+            status_code=404,
+            detail="Environment not found for project",
+        )
+
     try:
         result = run_deployment_pipeline(
             db=db,
             project_id=project_id,
+            environment_id=request.environment_id,
             repository_path=request.repository_path,
             image_name=request.image_name,
             application_name=request.application_name,
@@ -60,6 +70,7 @@ def deploy_pipeline(
     return DeploymentPipelineResponse(
         status=result.status,
         project_id=result.project_id,
+        environment_id=result.environment_id,
         image_name=result.image_name,
         build_id=result.build_id,
         security_scan_id=result.security_scan_id,

@@ -39,6 +39,7 @@ def test_orchestrator_blocks_deployment_when_build_pipeline_fails(monkeypatch):
     result = deployment_orchestrator.run_deployment_pipeline(
         db=db,
         project_id=1,
+        environment_id=1,
         repository_path="/tmp/test-app",
         image_name="nexus/test-app",
         application_name="test-app",
@@ -95,6 +96,7 @@ def test_orchestrator_deploys_after_successful_build(monkeypatch):
     result = deployment_orchestrator.run_deployment_pipeline(
         db=db,
         project_id=1,
+        environment_id=1,
         repository_path="/tmp/test-app",
         image_name="nexus/test-app",
         application_name="test-app",

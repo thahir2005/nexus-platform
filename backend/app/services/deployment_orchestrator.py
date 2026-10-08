@@ -12,6 +12,7 @@ from app.services.kubernetes_deployer import deploy_application
 class DeploymentPipelineResult:
     status: str
     project_id: int
+    environment_id: int
     image_name: str
     build_id: int
     security_scan_id: int | None
@@ -31,6 +32,7 @@ class DeploymentPipelineResult:
 def run_deployment_pipeline(
     db: Session,
     project_id: int,
+    environment_id: int,
     repository_path: str,
     image_name: str,
     application_name: str,
@@ -38,7 +40,6 @@ def run_deployment_pipeline(
     replicas: int = 1,
 ) -> DeploymentPipelineResult:
 
-    # 1. Build + validation + security gate
     build_result = run_build_pipeline(
         db=db,
         project_id=project_id,
@@ -46,10 +47,10 @@ def run_deployment_pipeline(
         image_name=image_name,
     )
 
-    # 2. Stop if the pipeline is blocked
     if build_result.status != "success":
         pipeline_run = DeploymentPipelineRun(
             project_id=project_id,
+            environment_id=environment_id,
             repository_path=repository_path,
             image_name=image_name,
             application_name=application_name,
@@ -73,6 +74,7 @@ def run_deployment_pipeline(
         return DeploymentPipelineResult(
             status="blocked",
             project_id=project_id,
+            environment_id=environment_id,
             image_name=image_name,
             build_id=build_result.build_id,
             security_scan_id=build_result.security_scan_id,
@@ -89,7 +91,6 @@ def run_deployment_pipeline(
             message=f"Deployment blocked: {build_result.message}",
         )
 
-    # 3. Deploy only after security gate passes
     deployment_result = deploy_application(
         image_name=image_name,
         application_name=application_name,
@@ -97,9 +98,9 @@ def run_deployment_pipeline(
         replicas=replicas,
     )
 
-    # 4. Persist Kubernetes deployment
     deployment = KubernetesDeployment(
         project_id=project_id,
+        environment_id=environment_id,
         image_name=image_name,
         application_name=deployment_result.deployment_name,
         namespace=deployment_result.namespace,
@@ -111,9 +112,9 @@ def run_deployment_pipeline(
     db.commit()
     db.refresh(deployment)
 
-    # 5. Persist pipeline history
     pipeline_run = DeploymentPipelineRun(
         project_id=project_id,
+        environment_id=environment_id,
         repository_path=repository_path,
         image_name=image_name,
         application_name=application_name,
@@ -137,13 +138,14 @@ def run_deployment_pipeline(
     return DeploymentPipelineResult(
         status="deployed",
         project_id=project_id,
+        environment_id=environment_id,
         image_name=image_name,
         build_id=build_result.build_id,
         security_scan_id=build_result.security_scan_id,
         deployment_id=deployment.id,
         deployment_name=deployment_result.deployment_name,
         service_name=deployment_result.service_name,
-        namespace=deployment_result.namespace,
+        namespace=namespace,
         replicas=replicas,
         build_status=build_result.build_status,
         validation_status=build_result.validation_status,
