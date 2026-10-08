@@ -8,6 +8,8 @@ from app.services.build_pipeline import run_build_pipeline
 def test_pipeline_blocks_when_security_scan_fails():
     db = SessionLocal()
 
+    result = None
+
     try:
         with (
             patch("app.services.build_pipeline.build_image") as mock_build,
@@ -30,6 +32,8 @@ def test_pipeline_blocks_when_security_scan_fails():
                 "Security gate blocked: HIGH or CRITICAL vulnerabilities detected"
             )
 
+            mock_scan.return_value.findings = []
+
             result = run_build_pipeline(
                 db=db,
                 project_id=1,
@@ -46,7 +50,7 @@ def test_pipeline_blocks_when_security_scan_fails():
         assert result.security_scan_id is not None
 
     finally:
-        if result.security_scan_id is not None:
+        if result is not None and result.security_scan_id is not None:
             scan = db.get(SecurityScan, result.security_scan_id)
             if scan:
                 db.delete(scan)

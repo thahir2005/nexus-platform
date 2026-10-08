@@ -94,12 +94,56 @@ def run_deployment_pipeline(
             message=f"Deployment blocked: {build_result.message}",
         )
 
-    deployment_result = deploy_application(
-        image_name=image_name,
-        application_name=application_name,
-        namespace=namespace,
-        replicas=replicas,
-    )
+    try:
+        deployment_result = deploy_application(
+            image_name=image_name,
+            application_name=application_name,
+            namespace=namespace,
+            replicas=replicas,
+        )
+    except ValueError as exc:
+        pipeline_run = DeploymentPipelineRun(
+            project_id=project_id,
+            environment_id=environment_id,
+            repository_path=repository_path,
+            image_name=image_name,
+            application_name=application_name,
+            namespace=namespace,
+            replicas=replicas,
+            build_id=build_result.build_id,
+            security_scan_id=build_result.security_scan_id,
+            deployment_id=None,
+            status="failed",
+            build_status=build_result.build_status,
+            validation_status=build_result.validation_status,
+            security_status=build_result.security_status,
+            high_count=build_result.high_count,
+            critical_count=build_result.critical_count,
+            message=f"Deployment failed: {exc}",
+        )
+
+        db.add(pipeline_run)
+        db.commit()
+
+        return DeploymentPipelineResult(
+            status="failed",
+            project_id=project_id,
+            environment_id=environment_id,
+            image_name=image_name,
+            build_id=build_result.build_id,
+            security_scan_id=build_result.security_scan_id,
+            deployment_id=None,
+            deployment_name=None,
+            service_name=None,
+            namespace=namespace,
+            replicas=replicas,
+            build_status=build_result.build_status,
+            validation_status=build_result.validation_status,
+            security_status=build_result.security_status,
+            high_count=build_result.high_count,
+            critical_count=build_result.critical_count,
+            message=f"Deployment failed: {exc}",
+        )
 
     deployment = KubernetesDeployment(
         project_id=project_id,

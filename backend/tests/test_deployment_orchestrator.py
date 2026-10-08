@@ -29,6 +29,12 @@ def test_orchestrator_blocks_deployment_when_build_pipeline_fails(monkeypatch):
         lambda **kwargs: build_result,
     )
 
+    monkeypatch.setattr(
+        deployment_orchestrator,
+        "prepare_build_context",
+        lambda *args, **kwargs: "/tmp/test-app",
+    )
+
     deploy_mock = Mock()
     monkeypatch.setattr(
         deployment_orchestrator,
@@ -83,6 +89,12 @@ def test_orchestrator_deploys_after_successful_build(monkeypatch):
         deployment_orchestrator,
         "run_build_pipeline",
         lambda **kwargs: build_result,
+    )
+
+    monkeypatch.setattr(
+        deployment_orchestrator,
+        "prepare_build_context",
+        lambda *args, **kwargs: "/tmp/test-app",
     )
 
     monkeypatch.setattr(

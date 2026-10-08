@@ -13,9 +13,15 @@ def test_deploy_creates_resources():
     apps_api = MagicMock()
     core_api = MagicMock()
 
+    apps_api.read_namespaced_deployment.return_value.status.ready_replicas = 1
+    apps_api.read_namespaced_deployment.return_value.status.available_replicas = 1
+
     with (
         patch(
             "app.services.kubernetes_deployer.config.load_kube_config"
+        ),
+        patch(
+            "app.services.kubernetes_deployer._load_local_image_into_minikube"
         ),
         patch(
             "app.services.kubernetes_deployer.client.AppsV1Api",
@@ -43,6 +49,9 @@ def test_deploy_updates_existing_resources():
     apps_api = MagicMock()
     core_api = MagicMock()
 
+    apps_api.read_namespaced_deployment.return_value.status.ready_replicas = 1
+    apps_api.read_namespaced_deployment.return_value.status.available_replicas = 1
+
     conflict = ApiException(status=409, reason="AlreadyExists")
 
     apps_api.create_namespaced_deployment.side_effect = conflict
@@ -51,6 +60,9 @@ def test_deploy_updates_existing_resources():
     with (
         patch(
             "app.services.kubernetes_deployer.config.load_kube_config"
+        ),
+        patch(
+            "app.services.kubernetes_deployer._load_local_image_into_minikube"
         ),
         patch(
             "app.services.kubernetes_deployer.client.AppsV1Api",

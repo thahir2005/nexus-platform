@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import subprocess
+import time
 
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
@@ -13,6 +15,94 @@ class KubernetesDeploymentResult:
     message: str
 
 
+def _load_local_image_into_minikube(image_name: str) -> None:
+    try:
+        context = subprocess.run(
+            ["kubectl", "config", "current-context"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(
+            "Unable to determine the active Kubernetes context."
+        ) from exc
+
+    if context != "minikube":
+        raise ValueError(
+            f"NEXUS local deployment requires the minikube context. "
+            f"Current context: {context}"
+        )
+
+    try:
+        subprocess.run(
+            ["minikube", "image", "load", image_name],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or exc.stdout.strip()
+        raise ValueError(
+            f"Unable to load image {image_name} into Minikube: {detail}"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(
+            f"Timed out loading image {image_name} into Minikube."
+        ) from exc
+
+
+def _wait_for_deployment_ready(
+    apps_api: client.AppsV1Api,
+    application_name: str,
+    namespace: str,
+    replicas: int,
+    timeout_seconds: int = 120,
+) -> None:
+    deadline = time.monotonic() + timeout_seconds
+
+    while time.monotonic() < deadline:
+        try:
+            deployment = apps_api.read_namespaced_deployment(
+                name=application_name,
+                namespace=namespace,
+            )
+        except ApiException as exc:
+            raise ValueError(
+                f"Unable to verify Kubernetes deployment: {exc.reason}"
+            ) from exc
+
+        status = deployment.status
+        ready_replicas = status.ready_replicas or 0
+        available_replicas = status.available_replicas or 0
+
+        if (
+            ready_replicas >= replicas
+            and available_replicas >= replicas
+        ):
+            return
+
+        time.sleep(3)
+
+    deployment = apps_api.read_namespaced_deployment(
+        name=application_name,
+        namespace=namespace,
+    )
+
+    status = deployment.status
+    ready_replicas = status.ready_replicas or 0
+    available_replicas = status.available_replicas or 0
+
+    raise ValueError(
+        f"Kubernetes deployment did not become ready within "
+        f"{timeout_seconds} seconds "
+        f"(ready={ready_replicas}/{replicas}, "
+        f"available={available_replicas}/{replicas})."
+    )
+
+
 def deploy_application(
     image_name: str,
     application_name: str,
@@ -23,6 +113,11 @@ def deploy_application(
 
     apps_api = client.AppsV1Api()
     core_api = client.CoreV1Api()
+
+    # NEXUS is currently local-first and uses Minikube.
+    # Make the locally built image available to the Kubernetes node
+    # before creating the workload.
+    _load_local_image_into_minikube(image_name)
 
     deployment = client.V1Deployment(
         metadata=client.V1ObjectMeta(
@@ -113,6 +208,14 @@ def deploy_application(
         )
         service_status = "updated"
 
+    # Do not report success until Kubernetes confirms the workload is ready.
+    _wait_for_deployment_ready(
+        apps_api=apps_api,
+        application_name=application_name,
+        namespace=namespace,
+        replicas=replicas,
+    )
+
     return KubernetesDeploymentResult(
         status="deployed",
         namespace=namespace,
@@ -120,9 +223,11 @@ def deploy_application(
         service_name=application_name,
         message=(
             f"Kubernetes deployment {deployment_status}; "
-            f"service {service_status}"
+            f"service {service_status}; "
+            f"{replicas}/{replicas} replicas ready"
         ),
     )
+
 
 def get_deployment_status(
     application_name: str,
@@ -167,6 +272,7 @@ def get_deployment_status(
         "ready_replicas": ready_replicas,
         "available_replicas": available_replicas,
     }
+
 
 def get_pod_health(
     application_name: str,
