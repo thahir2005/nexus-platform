@@ -105,6 +105,7 @@ def run_build_pipeline(
         medium_count=security_result.medium_count,
         high_count=security_result.high_count,
         critical_count=security_result.critical_count,
+        findings=security_result.findings,
     )
 
     db.add(security_scan)

@@ -6,6 +6,7 @@ from app.models.deployment_pipeline_run import DeploymentPipelineRun
 from app.models.kubernetes_deployment import KubernetesDeployment
 from app.services.build_pipeline import run_build_pipeline
 from app.services.kubernetes_deployer import deploy_application
+from app.services.build_preparation import prepare_build_context
 
 
 @dataclass
@@ -39,6 +40,8 @@ def run_deployment_pipeline(
     namespace: str = "nexus",
     replicas: int = 1,
 ) -> DeploymentPipelineResult:
+
+    prepare_build_context(repository_path)
 
     build_result = run_build_pipeline(
         db=db,

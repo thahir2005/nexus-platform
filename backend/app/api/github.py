@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.project import Project
+from app.models.environment import Environment
 from app.models.user import User
 from app.schemas.github import (
     GitHubImportRequest,
@@ -75,5 +76,18 @@ async def import_github_repository(
     db.add(project)
     db.commit()
     db.refresh(project)
+
+    development = Environment(
+        name="development",
+        project_id=project.id,
+    )
+
+    staging = Environment(
+        name="staging",
+        project_id=project.id,
+    )
+
+    db.add_all([development, staging])
+    db.commit()
 
     return project

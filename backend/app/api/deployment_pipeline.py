@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from app.schemas.deployment_pipeline import (
     DeploymentPipelineResponse,
 )
 from app.services.deployment_orchestrator import run_deployment_pipeline
+from app.services.repository_workspace import prepare_repository_workspace
 
 
 router = APIRouter(
@@ -23,6 +26,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _slugify_project_name(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
+    return slug or "project"
 
 
 @router.post(
@@ -51,16 +59,24 @@ def deploy_pipeline(
         )
 
     try:
+        repository_path = prepare_repository_workspace(project)
+
+        project_slug = _slugify_project_name(project.name)
+
+        image_name = f"nexus/{project_slug}"
+        application_name = f"nexus-{project_slug}"
+
         result = run_deployment_pipeline(
             db=db,
             project_id=project_id,
             environment_id=request.environment_id,
-            repository_path=request.repository_path,
-            image_name=request.image_name,
-            application_name=request.application_name,
-            namespace=request.namespace,
-            replicas=request.replicas,
+            repository_path=repository_path,
+            image_name=image_name,
+            application_name=application_name,
+            namespace="nexus",
+            replicas=1,
         )
+
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

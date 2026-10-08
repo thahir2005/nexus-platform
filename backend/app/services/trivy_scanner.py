@@ -12,6 +12,7 @@ class TrivyScanResult:
     high_count: int
     critical_count: int
     message: str
+    findings: list[dict]
 
 
 def scan_image(image_name: str) -> TrivyScanResult:
@@ -54,17 +55,37 @@ def scan_image(image_name: str) -> TrivyScanResult:
         "CRITICAL": 0,
     }
 
+    findings = []
+
     for target in data.get("Results", []):
         for vulnerability in target.get("Vulnerabilities") or []:
             severity = vulnerability.get("Severity", "UNKNOWN")
             counts[severity] = counts.get(severity, 0) + 1
 
+            findings.append(
+                {
+                    "vulnerability_id": vulnerability.get("VulnerabilityID"),
+                    "package": vulnerability.get("PkgName"),
+                    "installed_version": vulnerability.get("InstalledVersion"),
+                    "fixed_version": vulnerability.get("FixedVersion"),
+                    "severity": severity,
+                    "title": vulnerability.get("Title"),
+                    "target": target.get("Target"),
+                }
+            )
+
     if counts["CRITICAL"] > 0 or counts["HIGH"] > 0:
         status = "blocked"
-        message = "Security gate blocked: HIGH or CRITICAL vulnerabilities detected"
+        message = (
+            "Security gate blocked: HIGH or CRITICAL "
+            "vulnerabilities detected"
+        )
     else:
         status = "passed"
-        message = "Security gate passed: no HIGH or CRITICAL vulnerabilities detected"
+        message = (
+            "Security gate passed: no HIGH or CRITICAL "
+            "vulnerabilities detected"
+        )
 
     return TrivyScanResult(
         status=status,
@@ -74,4 +95,5 @@ def scan_image(image_name: str) -> TrivyScanResult:
         high_count=counts["HIGH"],
         critical_count=counts["CRITICAL"],
         message=message,
+        findings=findings,
     )

@@ -2,18 +2,7 @@
 from pydantic import BaseModel
 
 class DeploymentPipelineRequest(BaseModel):
-
-    repository_path: str
-
-    image_name: str
-
-    application_name: str
-
     environment_id: int
-
-    namespace: str = "nexus"
-
-    replicas: int = 1
 
 class DeploymentPipelineResponse(BaseModel):
 

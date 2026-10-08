@@ -2,6 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+class SecurityFinding(BaseModel):
+    vulnerability_id: str | None = None
+    package: str | None = None
+    installed_version: str | None = None
+    fixed_version: str | None = None
+    severity: str
+    title: str | None = None
+    target: str | None = None
 
 class SecurityScanResponse(BaseModel):
     id: int
@@ -14,6 +22,7 @@ class SecurityScanResponse(BaseModel):
     medium_count: int
     high_count: int
     critical_count: int
+    findings: list[SecurityFinding] = []
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
