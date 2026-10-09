@@ -16,6 +16,7 @@ class DeploymentPipelineHistoryResponse(BaseModel):
     security_scan_id: int | None
     deployment_id: int | None
     status: str
+    gitops_revision: str | None = None
     build_status: str
     validation_status: str
     security_status: str

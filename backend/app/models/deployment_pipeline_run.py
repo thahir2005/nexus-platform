@@ -107,6 +107,11 @@ class DeploymentPipelineRun(Base):
 
     )
 
+    gitops_revision: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
     build_status: Mapped[str] = mapped_column(
 
         String(50),

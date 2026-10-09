@@ -60,6 +60,11 @@ def test_orchestrator_blocks_deployment_when_build_pipeline_fails(monkeypatch):
 
 
 def test_orchestrator_deploys_after_successful_build(monkeypatch):
+    monkeypatch.setattr(
+        deployment_orchestrator.settings,
+        "gitops_enabled",
+        False,
+    )
     db = Mock()
 
     build_result = SimpleNamespace(

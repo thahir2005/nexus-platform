@@ -163,6 +163,51 @@ export type RollbackResponse = {
   message: string;
 };
 
+export type DeploymentStatus = {
+  project_id: number;
+  environment_id: number;
+  environment_name: string;
+  image_name: string;
+  application_name: string;
+  pipeline: {
+    id: number;
+    status: string;
+    build_id: number;
+    security_scan_id: number | null;
+    build_status: string;
+    validation_status: string;
+    security_status: string;
+    high_count: number;
+    critical_count: number;
+    message: string;
+    created_at: string;
+  };
+  gitops: {
+    status: string;
+    revision: string | null;
+  };
+
+  argo: {
+    status: string;
+    application_name: string;
+    sync_status: string;
+    health_status: string;
+    revision: string | null;
+    operation_phase: string | null;
+    operation_message: string | null;
+  };
+
+
+  kubernetes: {
+    status: string;
+    deployment_name: string;
+    namespace: string;
+    desired_replicas: number;
+    ready_replicas: number;
+    available_replicas: number;
+  };
+};
+
 export const api = {
   projects: () => get<Project[]>("/projects"),
 
@@ -182,7 +227,12 @@ export const api = {
       `/projects/${projectId}/deployments`,
     ),
 
-    rollback: (projectId: number, deploymentId: number) =>
+  deploymentStatus: (projectId: number) =>
+    get<DeploymentStatus>(
+      `/projects/${projectId}/deployment-status`,
+    ),
+
+  rollback: (projectId: number, deploymentId: number) =>
     post<RollbackResponse>(
       `/projects/${projectId}/deployments/${deploymentId}/rollback`,
       {},

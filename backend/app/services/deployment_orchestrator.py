@@ -183,6 +183,7 @@ def run_deployment_pipeline(
             security_scan_id=build_result.security_scan_id,
             deployment_id=None,
             status="gitops_pending",
+            gitops_revision=gitops_result.revision,
             build_status=build_result.build_status,
             validation_status=build_result.validation_status,
             security_status=build_result.security_status,

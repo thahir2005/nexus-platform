@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DeveloperExperience from "./pages/DeveloperExperience";
 import ImportRepository from "./pages/ImportRepository";
 import {
   Activity,
@@ -1515,6 +1516,10 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/import" element={<ImportRepository />} />
+            <Route
+              path="/projects/:projectId/developer-experience"
+              element={<DeveloperExperience />}
+            />
             <Route
               path="/projects/:projectId"
               element={<ProjectDetail />}
