@@ -435,7 +435,9 @@ export default function DeveloperExperience() {
                 <strong>Pipeline #{run.id}</strong>
                 {isCurrent && <span className="current-badge">CURRENT</span>}
                 {run.status === "gitops_pending" && isCurrent && (
-                  <span className="history-state healthy">GitOps active</span>
+                  <span className="history-state">
+                    GitOps pending verification
+                  </span>
                 )}
                 {run.status !== "gitops_pending" && (
                   <span className="history-state">{run.status}</span>
