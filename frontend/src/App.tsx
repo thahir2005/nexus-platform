@@ -23,7 +23,7 @@ import {
   useParams,
 } from "react-router-dom";
 
-import { api } from "./services/api";
+import { api, type DeploymentStatus } from "./services/api";
 import type {
   DeploymentHistory,
   DeploymentResponse,
@@ -104,7 +104,13 @@ function SecurityMetric({
   );
 }
 
-function HistoryTable({ rows }: { rows: DeploymentHistory[] }) {
+function HistoryTable({
+  rows,
+  verifiedDeploymentPipelineId = null,
+}: {
+  rows: DeploymentHistory[];
+  verifiedDeploymentPipelineId?: number | null;
+}) {
   const [environmentNames, setEnvironmentNames] = useState<
     Record<number, string>
   >({});
@@ -150,7 +156,10 @@ function HistoryTable({ rows }: { rows: DeploymentHistory[] }) {
           environmentNames[row.environment_id] ??
           `Environment #${row.environment_id}`;
 
-        const deployed = Boolean(row.deployment_id);
+        const deployed =
+          Boolean(row.deployment_id) ||
+          row.id === verifiedDeploymentPipelineId;
+
         const protectedRun = row.status === "blocked";
 
         return (
@@ -175,7 +184,13 @@ function HistoryTable({ rows }: { rows: DeploymentHistory[] }) {
                 </div>
               </div>
 
-              <StatusBadge status={row.status} />
+              <StatusBadge
+  status={
+    row.id === verifiedDeploymentPipelineId
+      ? "success"
+      : row.status
+  }
+/>
             </div>
 
             <div className="pipeline-run-steps">
@@ -220,7 +235,7 @@ function HistoryTable({ rows }: { rows: DeploymentHistory[] }) {
               <div className="pipeline-security-summary">
                 <ShieldAlert size={15} />
 
-                
+
               </div>
             )}
 
@@ -249,6 +264,10 @@ function Dashboard() {
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [history, setHistory] = useState<DeploymentHistory[]>([]);
   const [scans, setScans] = useState<SecurityScan[]>([]);
+  const [deploymentStatuses, setDeploymentStatuses] = useState<
+    Record<number, DeploymentStatus | null>
+  >({});
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -259,16 +278,18 @@ function Dashboard() {
 
         const results = await Promise.all(
           projectList.map(async (project) => {
-            const [envs, runs, security] = await Promise.all([
-              api.environments(project.id),
-              api.deploymentHistory(project.id),
-              api.securityScans(project.id),
-            ]);
+            const [envs, runs, security, deployment] = await Promise.all([
+  api.environments(project.id),
+  api.deploymentHistory(project.id),
+  api.securityScans(project.id),
+  api.deploymentStatus(project.id).catch(() => null),
+]);
 
             return {
               envs,
               runs,
               security,
+              deployment,
             };
           }),
         );
@@ -298,6 +319,14 @@ function Dashboard() {
                 new Date(a.created_at).getTime(),
             ),
         );
+
+        const statusMap: Record<number, DeploymentStatus | null> = {};
+
+projectList.forEach((project, index) => {
+  statusMap[project.id] = results[index].deployment;
+});
+
+setDeploymentStatuses(statusMap);
       } catch (err) {
         setError(
           err instanceof Error
@@ -397,8 +426,15 @@ function Dashboard() {
             </div>
 
             {latest && (
-              <StatusBadge status={latest.status} />
-            )}
+  <StatusBadge
+    status={
+      deploymentStatuses[latest.project_id]?.deployment_state === "deployed" &&
+      deploymentStatuses[latest.project_id]?.pipeline.id === latest.id
+        ? "success"
+        : latest.status
+    }
+  />
+)}
           </div>
 
           {latest ? (
@@ -420,13 +456,17 @@ function Dashboard() {
                 />
 
                 <PipelineStep
-                  label="Deployment"
-                  status={
-                    latest.deployment_id
-                      ? "success"
-                      : "blocked"
-                  }
-                />
+  label="Deployment"
+  status={
+    latest.deployment_id ||
+    (
+      deploymentStatuses[latest.project_id]?.deployment_state === "deployed" &&
+      deploymentStatuses[latest.project_id]?.pipeline.id === latest.id
+    )
+      ? "success"
+      : "blocked"
+  }
+/>
               </div>
 
               {latest.status === "blocked" && (
@@ -511,7 +551,15 @@ function Dashboard() {
           <Rocket size={20} />
         </div>
 
-        <HistoryTable rows={history.slice(0, 5)} />
+        <HistoryTable
+  rows={history.slice(0, 5)}
+  verifiedDeploymentPipelineId={
+    latest &&
+    deploymentStatuses[latest.project_id]?.deployment_state === "deployed"
+      ? deploymentStatuses[latest.project_id]?.pipeline.id ?? null
+      : null
+  }
+/>
       </div>
     </>
   );
@@ -603,8 +651,13 @@ function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [history, setHistory] = useState<DeploymentHistory[]>([]);
+  const [deploymentStatus, setDeploymentStatus] =
+    useState<DeploymentStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const currentPipelineDeployed =
+  deploymentStatus?.deployment_state === "deployed" &&
+  history[0]?.id === deploymentStatus?.pipeline.id;
 
   useEffect(() => {
     if (!id) {
@@ -613,15 +666,19 @@ function ProjectDetail() {
       return;
     }
 
+
+
     Promise.all([
       api.project(id),
       api.environments(id),
       api.deploymentHistory(id),
+      api.deploymentStatus(id).catch(() => null),
     ])
-      .then(([p, e, h]) => {
+      .then(([p, e, h, deployment]) => {
         setProject(p);
         setEnvironments(e);
         setHistory(h);
+        setDeploymentStatus(deployment);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -670,7 +727,9 @@ function ProjectDetail() {
                 <h2>Pipeline #{history[0].id}</h2>
               </div>
 
-              <StatusBadge status={history[0].status} />
+              <StatusBadge
+  status={currentPipelineDeployed ? "success" : history[0].status}
+/>
             </div>
 
             <div className="pipeline-mini">
@@ -761,7 +820,7 @@ function ProjectDetail() {
           </p>
         </div>
 
-      
+
       </div>
 
       <div className="environment-grid">
@@ -784,7 +843,14 @@ function ProjectDetail() {
           </div>
         </div>
 
-        <HistoryTable rows={history} />
+        <HistoryTable
+  rows={history}
+  verifiedDeploymentPipelineId={
+    deploymentStatus?.deployment_state === "deployed"
+      ? deploymentStatus.pipeline.id
+      : null
+  }
+/>
       </div>
     </>
   );
