@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.api import deployment_status
 
 
 client = TestClient(app)
@@ -17,6 +18,7 @@ def make_pipeline():
     )
 
     return SimpleNamespace(
+        id=17,
         project_id=129,
         environment_id=51,
         environment=environment,
@@ -75,26 +77,30 @@ def request_status(kubernetes=None, argo=None):
     query.order_by.return_value = query
     query.first.return_value = pipeline
 
-    with (
-        patch(
-            "app.api.deployment_status.get_db",
-            return_value=db,
-        ),
-        patch(
-            "app.api.deployment_status.get_deployment_status",
-            return_value=kubernetes or make_kubernetes_status(),
-        ),
-        patch(
-            "app.api.deployment_status.ArgoCDService",
-        ) as argo_service,
-    ):
-        argo_service.return_value.get_status.return_value = (
-            argo or make_argo_status()
-        )
+    def override_get_db():
+        yield db
 
-        response = client.get(
-            "/api/v1/projects/129/deployment-status"
-        )
+    app.dependency_overrides[deployment_status.get_db] = override_get_db
+
+    try:
+        with (
+            patch(
+                "app.api.deployment_status.get_deployment_status",
+                return_value=kubernetes or make_kubernetes_status(),
+            ),
+            patch(
+                "app.api.deployment_status.ArgoCDService",
+            ) as argo_service,
+        ):
+            argo_service.return_value.get_status.return_value = (
+                argo or make_argo_status()
+            )
+
+            response = client.get(
+                "/api/v1/projects/129/deployment-status"
+            )
+    finally:
+        app.dependency_overrides.pop(deployment_status.get_db, None)
 
     return response
 

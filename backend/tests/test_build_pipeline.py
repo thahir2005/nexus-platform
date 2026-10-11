@@ -2,6 +2,8 @@ from unittest.mock import patch
 
 from app.db.session import SessionLocal
 from app.models.security_scan import SecurityScan
+from app.models.project import Project
+from app.models.user import User
 from app.services.build_pipeline import run_build_pipeline
 
 
@@ -9,8 +11,26 @@ def test_pipeline_blocks_when_security_scan_fails():
     db = SessionLocal()
 
     result = None
+    project = None
 
     try:
+        user = db.query(User).filter(User.email == "build-pipeline-test@nexus.local").first()
+        if user is None:
+            user = User(
+                username="build-pipeline-test",
+                email="build-pipeline-test@nexus.local",
+            )
+            db.add(user)
+            db.flush()
+
+        project = Project(
+            name="build-pipeline-test",
+            owner_id=user.id,
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
         with (
             patch("app.services.build_pipeline.build_image") as mock_build,
             patch("app.services.build_pipeline.validate_image") as mock_validate,
@@ -36,7 +56,7 @@ def test_pipeline_blocks_when_security_scan_fails():
 
             result = run_build_pipeline(
                 db=db,
-                project_id=1,
+                project_id=project.id,
                 repository_path="/tmp/test-repository",
                 image_name="nexus/test-image",
             )
