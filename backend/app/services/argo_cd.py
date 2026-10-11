@@ -30,6 +30,7 @@ class ArgoCDService:
             sync = status.get("sync", {})
             health = status.get("health", {})
             operation = status.get("operationState", {})
+            sync_result = operation.get("syncResult", {})
 
             return {
                 "status": "available",
@@ -37,6 +38,7 @@ class ArgoCDService:
                 "sync_status": sync.get("status", "Unknown"),
                 "health_status": health.get("status", "Unknown"),
                 "revision": sync.get("revision"),
+                "applied_revision": sync_result.get("revision"),
                 "operation_phase": operation.get("phase"),
                 "operation_message": operation.get("message"),
             }
@@ -48,6 +50,7 @@ class ArgoCDService:
                 "sync_status": "Unknown",
                 "health_status": "Unknown",
                 "revision": None,
+                "applied_revision": None,
                 "operation_phase": None,
                 "operation_message": str(exc),
             }

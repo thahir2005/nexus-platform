@@ -107,6 +107,26 @@ export default function DeveloperExperience() {
   void loadHistory();
 }, [id]);
 
+useEffect(() => {
+  const shouldPoll =
+    data !== null &&
+    ["pending", "reconciling", "unavailable"].includes(
+      data.deployment_state,
+    );
+
+  if (!shouldPoll) {
+    return;
+  }
+
+  const intervalId = window.setInterval(() => {
+    void loadStatus();
+  }, 10_000);
+
+  return () => {
+    window.clearInterval(intervalId);
+  };
+}, [data?.deployment_state, id]);
+
   if (loading) {
     return (
       <main className="page-shell">
@@ -333,6 +353,35 @@ export default function DeveloperExperience() {
     <strong>{data.argo.operation_phase || "—"}</strong>
   </div>
 </div>
+
+        <div className="dx-card">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">APPLICATION</span>
+              <h2>Application health</h2>
+            </div>
+            <ShieldCheck size={20} />
+          </div>
+
+          <div className="detail-row">
+            <span>Status</span>
+            <strong>{data.application_health.status}</strong>
+          </div>
+
+          <div className="detail-row">
+            <span>HTTP status</span>
+            <strong>{data.application_health.http_status ?? "—"}</strong>
+          </div>
+
+          <div className="detail-row">
+            <span>Health endpoint</span>
+            <strong>
+              {data.application_health.url ?? "Not configured"}
+            </strong>
+          </div>
+
+          <p>{data.application_health.message}</p>
+        </div>
 
         <div className="dx-card">
           <div className="section-heading">

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.deployment_pipeline_run import DeploymentPipelineRun
 from app.models.project import Project
@@ -10,7 +11,9 @@ from app.schemas.deployment_status import (
     DeploymentStatusResponse,
     GitOpsStatus,
     KubernetesStatus,
+    ApplicationHealthStatus,
 )
+from app.services.application_health import check_application_health
 from app.services.argo_cd import ArgoCDService
 from app.services.kubernetes_deployer import get_deployment_status
 
@@ -58,10 +61,25 @@ def get_deployment_status_summary(
             detail="No deployment pipeline found",
         )
 
-    kubernetes = get_deployment_status(
-        application_name=pipeline.application_name,
-        namespace=pipeline.namespace,
-    )
+    try:
+        kubernetes = get_deployment_status(
+            application_name=pipeline.application_name,
+            namespace=pipeline.namespace,
+        )
+    except ValueError as exc:
+        if "deployment not found" in str(exc).lower():
+            kubernetes = {
+                "status": "pending",
+                "desired_replicas": getattr(pipeline, "replicas", None) or 1,
+                "ready_replicas": 0,
+                "available_replicas": 0,
+                "deployed_build_id": None,
+            }
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail="Unable to verify Kubernetes deployment status",
+            ) from exc
 
     if pipeline.status == "gitops_pending":
         gitops_status = (
@@ -74,10 +92,25 @@ def get_deployment_status_summary(
 
     argo_status = ArgoCDService().get_status()
 
+    application_health = check_application_health(
+        settings.application_health_url,
+        timeout_seconds=settings.application_health_timeout_seconds,
+    )
+
     if argo_status["status"] != "available":
         deployment_state = "unavailable"
+
     elif argo_status["sync_status"] == "OutOfSync":
         deployment_state = "reconciling"
+
+    elif (
+        pipeline.status == "gitops_pending"
+        and pipeline.gitops_revision
+        and argo_status.get("applied_revision")
+        != pipeline.gitops_revision
+    ):
+        deployment_state = "reconciling"
+
     elif (
         argo_status["sync_status"] == "Synced"
         and argo_status["health_status"] == "Healthy"
@@ -86,8 +119,10 @@ def get_deployment_status_summary(
         and kubernetes["available_replicas"] == kubernetes["desired_replicas"]
         and kubernetes["desired_replicas"] > 0
         and kubernetes["deployed_build_id"] == pipeline.build_id
+        and application_health["status"] == "healthy"
     ):
         deployment_state = "deployed"
+
     else:
         deployment_state = "pending"
 
@@ -133,4 +168,5 @@ def get_deployment_status_summary(
             ready_replicas=kubernetes["ready_replicas"],
             available_replicas=kubernetes["available_replicas"],
         ),
+        application_health=ApplicationHealthStatus(**application_health),
     )

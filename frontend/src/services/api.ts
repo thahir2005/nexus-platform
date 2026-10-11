@@ -207,6 +207,12 @@ export type DeploymentStatus = {
     ready_replicas: number;
     available_replicas: number;
   };
+  application_health: {
+    status: string;
+    url: string | null;
+    http_status: number | null;
+    message: string;
+  };
 };
 
 export const api = {

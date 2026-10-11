@@ -41,6 +41,13 @@ class ArgoCDStatus(BaseModel):
     operation_message: str | None = None
 
 
+class ApplicationHealthStatus(BaseModel):
+    status: str
+    url: str | None = None
+    http_status: int | None = None
+    message: str
+
+
 class DeploymentStatusResponse(BaseModel):
     project_id: int
     environment_id: int
@@ -52,3 +59,4 @@ class DeploymentStatusResponse(BaseModel):
     argo: ArgoCDStatus
     deployment_state: str
     kubernetes: KubernetesStatus
+    application_health: ApplicationHealthStatus

@@ -54,6 +54,7 @@ def make_argo_status(
     sync_status="Synced",
     health_status="Healthy",
     revision="abc123",
+    applied_revision="abc123",
 ):
     return {
         "status": status,
@@ -63,6 +64,7 @@ def make_argo_status(
         "revision": revision,
         "operation_phase": "Succeeded",
         "operation_message": "Sync completed",
+        "applied_revision": applied_revision,
     }
 
 
@@ -91,6 +93,24 @@ def request_status(kubernetes=None, argo=None):
             patch(
                 "app.api.deployment_status.ArgoCDService",
             ) as argo_service,
+            patch(
+                "app.api.deployment_status.check_application_health",
+                return_value={
+                    "status": "healthy",
+                    "url": "https://app.example.com/health",
+                    "http_status": 200,
+                    "message": "Application health check succeeded",
+                },
+            ),
+            patch(
+                "app.api.deployment_status.check_application_health",
+                return_value={
+                    "status": "healthy",
+                    "url": "https://app.example.com/health",
+                    "http_status": 200,
+                    "message": "Application health check succeeded",
+                },
+            ),
         ):
             argo_service.return_value.get_status.return_value = (
                 argo or make_argo_status()
@@ -133,9 +153,9 @@ def test_deployment_status_pending_when_replicas_are_not_ready():
     assert response.json()["deployment_state"] == "pending"
 
 
-def test_deployment_status_reconciling_when_out_of_sync():
+def test_deployment_status_reconciling_when_revision_does_not_match():
     response = request_status(
-        argo=make_argo_status(sync_status="OutOfSync")
+        argo=make_argo_status(applied_revision="different-revision")
     )
 
     assert response.status_code == 200
@@ -149,3 +169,136 @@ def test_deployment_status_unavailable_when_argo_is_unavailable():
 
     assert response.status_code == 200
     assert response.json()["deployment_state"] == "unavailable"
+
+def test_deployment_status_pending_when_deployment_not_found():
+    pipeline = make_pipeline()
+
+    db = MagicMock()
+    db.get.return_value = SimpleNamespace(id=129)
+
+    query = db.query.return_value
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.first.return_value = pipeline
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[deployment_status.get_db] = override_get_db
+
+    try:
+        with (
+            patch(
+                "app.api.deployment_status.get_deployment_status",
+                side_effect=ValueError("Kubernetes deployment not found"),
+            ),
+            patch(
+                "app.api.deployment_status.ArgoCDService",
+            ) as argo_service,
+        ):
+            argo_service.return_value.get_status.return_value = (
+                make_argo_status()
+            )
+
+            response = client.get(
+                "/api/v1/projects/129/deployment-status"
+            )
+    finally:
+        app.dependency_overrides.pop(deployment_status.get_db, None)
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "pending"
+    assert response.json()["kubernetes"]["ready_replicas"] == 0
+
+
+def test_deployment_status_reconciling_when_revision_does_not_match():
+    response = request_status(
+        argo=make_argo_status(
+            applied_revision="different-revision"
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "reconciling"
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "reconciling"
+
+def test_deployment_status_pending_when_application_health_fails():
+    pipeline = make_pipeline()
+
+    db = MagicMock()
+    db.get.return_value = SimpleNamespace(id=129)
+
+    query = db.query.return_value
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.first.return_value = pipeline
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[deployment_status.get_db] = override_get_db
+
+    try:
+        with (
+            patch(
+                "app.api.deployment_status.get_deployment_status",
+                return_value=make_kubernetes_status(),
+            ),
+            patch(
+                "app.api.deployment_status.ArgoCDService",
+            ) as argo_service,
+            patch(
+                "app.api.deployment_status.check_application_health",
+                return_value={
+                    "status": "unhealthy",
+                    "url": "https://app.example.com/health",
+                    "http_status": 500,
+                    "message": "Application health check failed",
+                },
+            ),
+        ):
+            argo_service.return_value.get_status.return_value = (
+                make_argo_status()
+            )
+
+            response = client.get(
+                "/api/v1/projects/129/deployment-status"
+            )
+    finally:
+        app.dependency_overrides.pop(deployment_status.get_db, None)
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "pending"
+    assert response.json()["application_health"]["status"] == "unhealthy"
+
+
+def test_deployment_status_deployed_when_applied_revision_matches():
+    response = request_status(
+        argo=make_argo_status(
+            revision="newer-tracked-revision",
+            applied_revision="abc123",
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "deployed"
+
+
+def test_deployment_status_reconciling_when_applied_revision_missing():
+    response = request_status(
+        argo=make_argo_status(applied_revision=None)
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "reconciling"
+
+
+def test_deployment_status_reconciling_when_out_of_sync():
+    response = request_status(
+        argo=make_argo_status(sync_status="OutOfSync")
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deployment_state"] == "reconciling"
