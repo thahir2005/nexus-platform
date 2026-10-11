@@ -136,12 +136,17 @@ export default function DeveloperExperience() {
     );
   }
 
-  const deploymentHealthy =
-  data.argo.status === "available" &&
-  data.argo.sync_status === "Synced" &&
-  data.argo.health_status === "Healthy" &&
-  data.kubernetes.ready_replicas === data.kubernetes.desired_replicas &&
-  data.kubernetes.available_replicas === data.kubernetes.desired_replicas;
+  const deploymentHealthy = data.deployment_state === "deployed";
+
+  const deploymentStateLabel: Record<string, string> = {
+    deployed: "Healthy",
+    pending: "Pending",
+    reconciling: "Reconciling",
+    unavailable: "Unavailable",
+  };
+
+  const deploymentLabel =
+    deploymentStateLabel[data.deployment_state] ?? "Unknown";
 
   const stages = [
   {
@@ -240,8 +245,10 @@ export default function DeveloperExperience() {
           </div>
 
           <span className="status-pill">
-  <StatusIcon status={deploymentHealthy ? "running" : data.pipeline.status} />
-  {deploymentHealthy ? "healthy" : data.pipeline.status}
+  <StatusIcon
+    status={deploymentHealthy ? "running" : data.deployment_state}
+  />
+  {deploymentLabel}
 </span>
         </div>
 

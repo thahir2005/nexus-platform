@@ -255,6 +255,18 @@ def get_deployment_status(
     spec = deployment.spec
     status = deployment.status
 
+    annotations = deployment.metadata.annotations or {}
+    deployed_build_id = annotations.get("nexus.io/build-id")
+
+    try:
+        deployed_build_id = (
+            int(deployed_build_id)
+            if deployed_build_id is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        deployed_build_id = None
+
     desired_replicas = spec.replicas or 0
     ready_replicas = status.ready_replicas or 0
     available_replicas = status.available_replicas or 0
@@ -271,6 +283,7 @@ def get_deployment_status(
         "desired_replicas": desired_replicas,
         "ready_replicas": ready_replicas,
         "available_replicas": available_replicas,
+        "deployed_build_id": deployed_build_id,
     }
 
 

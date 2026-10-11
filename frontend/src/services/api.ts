@@ -169,6 +169,7 @@ export type DeploymentStatus = {
   environment_name: string;
   image_name: string;
   application_name: string;
+  deployment_state: string;
   pipeline: {
     id: number;
     status: string;

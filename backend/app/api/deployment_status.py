@@ -74,8 +74,26 @@ def get_deployment_status_summary(
 
     argo_status = ArgoCDService().get_status()
 
+    if argo_status["status"] != "available":
+        deployment_state = "unavailable"
+    elif argo_status["sync_status"] == "OutOfSync":
+        deployment_state = "reconciling"
+    elif (
+        argo_status["sync_status"] == "Synced"
+        and argo_status["health_status"] == "Healthy"
+        and kubernetes["status"] == "running"
+        and kubernetes["ready_replicas"] == kubernetes["desired_replicas"]
+        and kubernetes["available_replicas"] == kubernetes["desired_replicas"]
+        and kubernetes["desired_replicas"] > 0
+        and kubernetes["deployed_build_id"] == pipeline.build_id
+    ):
+        deployment_state = "deployed"
+    else:
+        deployment_state = "pending"
+
     return DeploymentStatusResponse(
         project_id=project_id,
+        deployment_state=deployment_state,
         environment_id=pipeline.environment_id,
         environment_name=pipeline.environment.name,
         image_name=pipeline.image_name,

@@ -50,4 +50,5 @@ class DeploymentStatusResponse(BaseModel):
     pipeline: DeploymentPipelineStatus
     gitops: GitOpsStatus
     argo: ArgoCDStatus
+    deployment_state: str
     kubernetes: KubernetesStatus
