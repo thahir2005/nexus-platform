@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nexus-demo-api
-          image: nexus/devops-production-platform:v2
+          image: ghcr.io/thahir2005/nexus-backend:25732dfe708c65970c23c6a40614d51300ed83ba
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
