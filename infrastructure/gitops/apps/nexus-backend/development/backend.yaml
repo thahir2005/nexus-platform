@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-demo-api
+  namespace: nexus
+  labels:
+    app: nexus-demo-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-demo-api
+  template:
+    metadata:
+      labels:
+        app: nexus-demo-api
+    spec:
+      containers:
+        - name: nexus-demo-api
+          image: nexus/devops-production-platform:v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nexus-backend-config
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-demo-api
+  namespace: nexus
+spec:
+  type: ClusterIP
+  selector:
+    app: nexus-demo-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
