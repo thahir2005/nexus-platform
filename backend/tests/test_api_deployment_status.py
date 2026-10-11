@@ -72,7 +72,10 @@ def request_status(kubernetes=None, argo=None):
     pipeline = make_pipeline()
 
     db = MagicMock()
-    db.get.return_value = SimpleNamespace(id=129)
+    db.get.return_value = SimpleNamespace(
+        id=129,
+        name="NEXUS",
+    )
 
     query = db.query.return_value
     query.filter.return_value = query
@@ -102,13 +105,16 @@ def request_status(kubernetes=None, argo=None):
                     "message": "Application health check succeeded",
                 },
             ),
+
             patch(
-                "app.api.deployment_status.check_application_health",
-                return_value={
-                    "status": "healthy",
-                    "url": "https://app.example.com/health",
-                    "http_status": 200,
-                    "message": "Application health check succeeded",
+                "app.api.deployment_status.GitOpsVerifier.verify_deployment",
+                side_effect=lambda revision, **kwargs: {
+                    "verified": revision == "abc123",
+                    "message": (
+                        "GitOps manifest matches the expected build"
+                        if revision == "abc123"
+                        else "Applied Git revision is missing or does not match"
+                    ),
                 },
             ),
         ):
@@ -174,7 +180,7 @@ def test_deployment_status_pending_when_deployment_not_found():
     pipeline = make_pipeline()
 
     db = MagicMock()
-    db.get.return_value = SimpleNamespace(id=129)
+    db.get.return_value = SimpleNamespace(id=129, name="NEXUS")
 
     query = db.query.return_value
     query.filter.return_value = query
@@ -228,7 +234,7 @@ def test_deployment_status_pending_when_application_health_fails():
     pipeline = make_pipeline()
 
     db = MagicMock()
-    db.get.return_value = SimpleNamespace(id=129)
+    db.get.return_value = SimpleNamespace(id=129, name="NEXUS")
 
     query = db.query.return_value
     query.filter.return_value = query

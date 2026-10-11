@@ -16,6 +16,7 @@ from app.schemas.deployment_status import (
 from app.services.application_health import check_application_health
 from app.services.argo_cd import ArgoCDService
 from app.services.kubernetes_deployer import get_deployment_status
+from app.services.gitops_verifier import GitOpsVerifier
 
 
 router = APIRouter(
@@ -104,22 +105,32 @@ def get_deployment_status_summary(
         deployment_state = "reconciling"
 
     elif (
-        pipeline.status == "gitops_pending"
-        and pipeline.gitops_revision
-        and argo_status.get("applied_revision")
-        != pipeline.gitops_revision
+        kubernetes["status"] != "running"
+        or kubernetes["desired_replicas"] <= 0
+        or kubernetes["ready_replicas"] != kubernetes["desired_replicas"]
+        or kubernetes["available_replicas"] != kubernetes["desired_replicas"]
+        or kubernetes["deployed_build_id"] != pipeline.build_id
+        or application_health["status"] != "healthy"
+    ):
+        deployment_state = "pending"
+
+    elif pipeline.status == "gitops_pending" and (
+        not pipeline.gitops_revision
+        or not GitOpsVerifier().verify_deployment(
+            revision=argo_status.get("applied_revision"),
+            published_revision=pipeline.gitops_revision,
+            project_name=project.name,
+            environment_name=pipeline.environment.name,
+            application_name=pipeline.application_name,
+            namespace=pipeline.namespace,
+            build_id=pipeline.build_id,
+        )["verified"]
     ):
         deployment_state = "reconciling"
 
     elif (
         argo_status["sync_status"] == "Synced"
         and argo_status["health_status"] == "Healthy"
-        and kubernetes["status"] == "running"
-        and kubernetes["ready_replicas"] == kubernetes["desired_replicas"]
-        and kubernetes["available_replicas"] == kubernetes["desired_replicas"]
-        and kubernetes["desired_replicas"] > 0
-        and kubernetes["deployed_build_id"] == pipeline.build_id
-        and application_health["status"] == "healthy"
     ):
         deployment_state = "deployed"
 
