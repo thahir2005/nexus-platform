@@ -36,14 +36,16 @@ def test_gitops_mode_publishes_after_successful_build(
     )
 
     with patch(
-        "app.services.deployment_orchestrator.prepare_build_context"
-    ), patch(
-        "app.services.deployment_orchestrator.run_build_pipeline",
-        return_value=build_result,
-    ), patch(
-        "app.services.deployment_orchestrator.GitOpsPublisher.publish",
-        return_value=gitops_result,
-    ) as publish:
+    "app.services.deployment_orchestrator.prepare_build_context"
+), patch(
+    "app.services.deployment_orchestrator.load_local_image_into_minikube"
+), patch(
+    "app.services.deployment_orchestrator.run_build_pipeline",
+    return_value=build_result,
+), patch(
+    "app.services.deployment_orchestrator.GitOpsPublisher.publish",
+    return_value=gitops_result,
+) as publish:
         result = run_deployment_pipeline(
             db=db,
             project_id=1,
