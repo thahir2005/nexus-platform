@@ -128,6 +128,7 @@ def get_deployment_status_summary(
 
     return DeploymentStatusResponse(
         project_id=project_id,
+        application_url=settings.application_url,
         deployment_state=deployment_state,
         environment_id=pipeline.environment_id,
         environment_name=pipeline.environment.name,

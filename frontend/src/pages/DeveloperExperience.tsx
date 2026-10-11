@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock3,
+  ExternalLink,
   GitBranch,
   GitCommit,
   History,
@@ -223,16 +224,44 @@ useEffect(() => {
           </p>
         </div>
 
-        <button
-  className="refresh-button"
-  onClick={() => {
-    void loadStatus();
-    void loadHistory();
-  }}
->
-  <RefreshCw size={16} />
-  Refresh
-</button>
+        <div className="dx-header-actions">
+  {data.application_url &&
+    data.deployment_state === "deployed" &&
+    (() => {
+      try {
+        const url = new URL(data.application_url);
+
+        if (url.protocol !== "https:") {
+          return null;
+        }
+
+        return (
+          <a
+            className="refresh-button"
+            href={url.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink size={16} />
+            Open Application
+          </a>
+        );
+      } catch {
+        return null;
+      }
+    })()}
+
+  <button
+    className="refresh-button"
+    onClick={() => {
+      void loadStatus();
+      void loadHistory();
+    }}
+  >
+    <RefreshCw size={16} />
+    Refresh
+  </button>
+</div>
       </section>
 
       <section className="dx-meta-grid">

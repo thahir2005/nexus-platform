@@ -50,6 +50,8 @@ class ApplicationHealthStatus(BaseModel):
 
 class DeploymentStatusResponse(BaseModel):
     project_id: int
+    application_url: str | None = None
+    environment_id: int
     environment_id: int
     environment_name: str
     image_name: str

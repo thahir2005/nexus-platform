@@ -165,6 +165,7 @@ export type RollbackResponse = {
 
 export type DeploymentStatus = {
   project_id: number;
+  application_url: string | null;
   environment_id: number;
   environment_name: string;
   image_name: string;

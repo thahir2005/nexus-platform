@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     gitops_root_path: str = "infrastructure/gitops/apps"
     gitops_push: bool = True
 
+    application_url: str | None = None
     application_health_url: str | None = None
     application_health_timeout_seconds: float = 3.0
 
