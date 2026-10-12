@@ -235,10 +235,24 @@ export const api = {
       `/projects/${projectId}/deployments`,
     ),
 
-  deploymentStatus: (projectId: number) =>
-    get<DeploymentStatus>(
+  deploymentStatus: async (
+  projectId: number,
+): Promise<DeploymentStatus | null> => {
+  try {
+    return await get<DeploymentStatus>(
       `/projects/${projectId}/deployment-status`,
-    ),
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("404")
+    ) {
+      return null;
+    }
+
+    throw error;
+  }
+},
 
   rollback: (projectId: number, deploymentId: number) =>
     post<RollbackResponse>(

@@ -262,6 +262,13 @@ h2 {
   color: #f87171;
 }
 
+.neutral-icon {
+  color: #64748b;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
 .grid-two {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

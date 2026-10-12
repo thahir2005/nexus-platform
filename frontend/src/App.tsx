@@ -68,11 +68,15 @@ function PipelineStep({
   status: string;
 }) {
   const success = status === "success" || status === "valid";
+  const notStarted =
+    status === "NOT_STARTED" || status === "not_started";
 
   return (
     <div className="pipeline-step">
       {success ? (
         <CheckCircle2 className="success-icon" size={20} />
+      ) : notStarted ? (
+        <span className="neutral-icon">—</span>
       ) : (
         <XCircle className="danger-icon" size={20} />
       )}
@@ -276,23 +280,38 @@ function Dashboard() {
       try {
         const projectList = await api.projects();
 
-        const results = await Promise.all(
-          projectList.map(async (project) => {
-            const [envs, runs, security, deployment] = await Promise.all([
-  api.environments(project.id),
-  api.deploymentHistory(project.id),
-  api.securityScans(project.id),
-  api.deploymentStatus(project.id).catch(() => null),
-]);
+        const results: {
+  envs: Environment[];
+  runs: DeploymentHistory[];
+  security: SecurityScan[];
+  deployment: DeploymentStatus | null;
+}[] = [];
 
-            return {
-              envs,
-              runs,
-              security,
-              deployment,
-            };
-          }),
-        );
+const batchSize = 10;
+
+for (let i = 0; i < projectList.length; i += batchSize) {
+  const batch = projectList.slice(i, i + batchSize);
+
+  const batchResults = await Promise.all(
+    batch.map(async (project) => {
+      const [envs, runs, security, deployment] = await Promise.all([
+        api.environments(project.id),
+        api.deploymentHistory(project.id),
+        api.securityScans(project.id),
+        api.deploymentStatus(project.id),
+      ]);
+
+      return {
+        envs,
+        runs,
+        security,
+        deployment,
+      };
+    }),
+  );
+
+  results.push(...batchResults);
+}
 
         setProjects(projectList);
 
@@ -328,14 +347,11 @@ projectList.forEach((project, index) => {
 
 setDeploymentStatuses(statusMap);
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load dashboard",
-        );
-      } finally {
-        setLoading(false);
-      }
+  console.error("Dashboard loading failed:", err);
+  setError(err instanceof Error ? err.message : "Failed to load dashboard");
+} finally {
+  setLoading(false);
+}
     }
 
     loadDashboard();
@@ -458,13 +474,16 @@ setDeploymentStatuses(statusMap);
                 <PipelineStep
   label="Deployment"
   status={
-    latest.deployment_id ||
-    (
-      deploymentStatuses[latest.project_id]?.deployment_state === "deployed" &&
-      deploymentStatuses[latest.project_id]?.pipeline.id === latest.id
-    )
-      ? "success"
-      : "blocked"
+    !deploymentStatuses[latest.project_id]
+      ? "NOT_STARTED"
+      : latest.deployment_id ||
+          (
+            deploymentStatuses[latest.project_id]?.deployment_state ===
+              "deployed" &&
+            deploymentStatuses[latest.project_id]?.pipeline.id === latest.id
+          )
+        ? "success"
+        : "blocked"
   }
 />
               </div>
