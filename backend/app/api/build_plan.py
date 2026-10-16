@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.project import Project
 from app.schemas.build_plan import BuildPlanResponse
 from app.services.blueprint import generate_blueprint
@@ -31,8 +33,13 @@ def get_db():
 async def create_build_plan(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == user.id)
+        .first()
+    )
 
     if not project:
         raise HTTPException(

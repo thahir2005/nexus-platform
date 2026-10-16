@@ -3,6 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.deployment import Deployment
 from app.models.environment import Environment
 from app.models.project import Project
@@ -56,14 +58,17 @@ def create_deployment(
     environment_id: int,
     deployment_data: DeploymentCreate,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.owner_id == user.id,
         )
+    )
+
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     environment = db.scalar(
         select(Environment).where(
@@ -99,7 +104,17 @@ def list_deployments(
     project_id: int,
     environment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.owner_id == user.id,
+        )
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     environment = db.scalar(
         select(Environment).where(
             Environment.id == environment_id,
@@ -129,7 +144,17 @@ def get_deployment(
     environment_id: int,
     deployment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.owner_id == user.id,
+        )
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     deployment = db.scalar(
         select(Deployment)
         .join(Environment)
@@ -159,7 +184,17 @@ def update_deployment_status(
     deployment_id: int,
     status_data: DeploymentStatusUpdate,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.owner_id == user.id,
+        )
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     deployment = db.scalar(
         select(Deployment)
         .join(Environment)

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.build import Build
 from app.models.project import Project
 from app.schemas.build import BuildResponse
@@ -27,8 +29,13 @@ def get_db():
 def list_builds(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == user.id)
+        .first()
+    )
 
     if not project:
         raise HTTPException(
@@ -52,7 +59,16 @@ def get_build(
     project_id: int,
     build_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == user.id)
+        .first()
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     build = (
         db.query(Build)
         .filter(

@@ -9,6 +9,12 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     database_url: str
 
+    clerk_secret_key: str | None = None
+    clerk_jwt_key: str | None = None
+    clerk_authorized_parties: str = (
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
+
     gitops_enabled: bool = False
     gitops_repo_url: str = (
         "https://github.com/thahir2005/nexus-platform.git"

@@ -1,8 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DockerValidationRequest(BaseModel):
-    image_name: str
+    project_id: int = Field(gt=0)
 
 
 class DockerValidationResponse(BaseModel):

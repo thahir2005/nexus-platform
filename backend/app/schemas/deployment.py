@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field
 
 
 class DeploymentStatus(str, Enum):
@@ -29,15 +30,23 @@ class DeploymentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+
+
 class KubernetesDeployRequest(BaseModel):
-
-    image_name: str
-
-    application_name: str
-
-    namespace: str = "nexus"
-
-    replicas: int = 1
+    image_name: str = Field(
+        pattern=r"^nexus/project-[1-9][0-9]*$",
+        max_length=100,
+    )
+    application_name: str = Field(
+        pattern=r"^nexus-project-[1-9][0-9]*$",
+        max_length=63,
+    )
+    namespace: str = Field(
+        default="nexus",
+        pattern=r"^nexus$",
+    )
+    replicas: int = Field(default=1, ge=1, le=3)
 
 class KubernetesDeployResponse(BaseModel):
 

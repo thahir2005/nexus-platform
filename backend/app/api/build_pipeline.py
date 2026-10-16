@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.db.dependencies import get_db
 from app.models.project import Project
+from app.models.user import User
 from app.schemas.build_pipeline import (
     BuildPipelineRequest,
     BuildPipelineResponse,
 )
 from app.services.build_pipeline import run_build_pipeline
+from app.services.repository_workspace import prepare_repository_workspace
+
 
 router = APIRouter(
     prefix="/docker",
@@ -15,42 +19,34 @@ router = APIRouter(
 )
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@router.post(
-    "/pipeline",
-    response_model=BuildPipelineResponse,
-)
+@router.post("/pipeline", response_model=BuildPipelineResponse)
 def docker_pipeline(
     request: BuildPipelineRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, request.project_id)
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.owner_id == user.id,
+    ).first()
 
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     try:
+        repository_path = prepare_repository_workspace(project)
+
+        # The client cannot choose the image namespace or tag.
+        image_name = f"nexus/project-{project.id}"
+
         result = run_build_pipeline(
             db=db,
             project_id=project.id,
-            repository_path=request.repository_path,
-            image_name=request.image_name,
+            repository_path=repository_path,
+            image_name=image_name,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        ) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return BuildPipelineResponse(
         status=result.status,

@@ -1,10 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BuildPipelineRequest(BaseModel):
-    project_id: int
-    repository_path: str
-    image_name: str
+    project_id: int = Field(gt=0)
 
 
 class BuildPipelineResponse(BaseModel):

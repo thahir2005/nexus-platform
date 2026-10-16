@@ -2,20 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
+from app.db.dependencies import get_db
 from app.models.project import Project
 from app.models.user import User
+from app.core.auth import get_current_user
 from app.schemas.project import ProjectCreate, ProjectResponse
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post(
@@ -26,17 +19,8 @@ def get_db():
 def create_project(
     project_data: ProjectCreate,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    user = db.get(User, 1)
-
-    if not user:
-        user = User(
-            username="demo",
-            email="demo@nexus.local",
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
 
     project = Project(
         name=project_data.name,
@@ -58,9 +42,10 @@ def create_project(
 )
 def list_projects(
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     projects = db.scalars(
-        select(Project).order_by(Project.id)
+        select(Project).where(Project.owner_id == user.id).order_by(Project.id)
     ).all()
 
     return projects
@@ -73,8 +58,9 @@ def list_projects(
 def get_project(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
 
     if not project:
         raise HTTPException(
@@ -92,8 +78,9 @@ def get_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
 
     if not project:
         raise HTTPException(

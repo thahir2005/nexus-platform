@@ -1,8 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DockerBuildRequest(BaseModel):
-    repository_path: str
+    project_id: int = Field(gt=0)
 
 
 class DockerBuildResponse(BaseModel):

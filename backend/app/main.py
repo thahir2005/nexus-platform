@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from app.core.auth import require_request_access
 from app.api.projects import router as projects_router
 from app.api.environments import router as environments_router
 from app.api.deployments import router as deployments_router
@@ -24,67 +25,74 @@ app = FastAPI(
 )
 Instrumentator().instrument(app).expose(app)
 
-app.include_router(
+
+def include_protected(router, **kwargs):
+    """Mount API routers behind session authentication and project ownership."""
+    app.include_router(
+        router, dependencies=[Depends(require_request_access)], **kwargs
+    )
+
+include_protected(
     projects_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     environments_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     deployments_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     github_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     repository_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     blueprint_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     build_plan_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     docker_build_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     docker_validation_router,
     prefix="/api/v1",
 )
 
-app.include_router(
+include_protected(
     build_pipeline_router,
     prefix="/api/v1",
 )
 
-app.include_router(builds.router, prefix="/api/v1")
+include_protected(builds.router, prefix="/api/v1")
 
-app.include_router(security_scans.router)
+include_protected(security_scans.router)
 
-app.include_router(kubernetes.router)
+include_protected(kubernetes.router)
 
-app.include_router(deployment_pipeline_router)
+include_protected(deployment_pipeline_router)
 
-app.include_router(deployment_history.router)
+include_protected(deployment_history.router)
 
-app.include_router(deployment_status.router)
+include_protected(deployment_status.router)
 
 
 @app.get("/")

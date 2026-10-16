@@ -10,3 +10,26 @@ venv/
 
 # macOS
 .DS_Store
+
+# Local secrets and recovery backups
+.env.*
+!.env.example
+*.local-backup
+*.backup-*
+.local-backups/
+
+# Local recovery files — never commit
+*.local-backup
+*.rollback-test-backup
+
+# Local recovery backups and internal notes
+*.local-auth-backup
+*.backup-*
+README-APPLY-FIRST.txt
+
+# Local environment files and recovery backups
+.env*
+!.env.example
+*.backup
+*.backup-*
+*.local-backup

@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
+from app.db.dependencies import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.environment import Environment
 from app.models.project import Project
 from app.schemas.environment import EnvironmentCreate, EnvironmentResponse
@@ -11,14 +13,6 @@ router = APIRouter(
     prefix="/projects/{project_id}/environments",
     tags=["Environments"],
 )
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post(
@@ -30,8 +24,9 @@ def create_environment(
     project_id: int,
     environment_data: EnvironmentCreate,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
 
     if not project:
         raise HTTPException(
@@ -58,8 +53,9 @@ def create_environment(
 def list_environments(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
 
     if not project:
         raise HTTPException(
@@ -84,7 +80,11 @@ def get_environment(
     project_id: int,
     environment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
     environment = db.scalar(
         select(Environment).where(
             Environment.id == environment_id,

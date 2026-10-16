@@ -691,13 +691,16 @@ function ProjectDetail() {
       api.project(id),
       api.environments(id),
       api.deploymentHistory(id),
-      api.deploymentStatus(id).catch(() => null),
     ])
-      .then(([p, e, h, deployment]) => {
+      .then(([p, e, h]) => {
         setProject(p);
         setEnvironments(e);
         setHistory(h);
-        setDeploymentStatus(deployment);
+
+        // Deployment status is optional for projects without a pipeline.
+        return api.deploymentStatus(id)
+          .then(setDeploymentStatus)
+          .catch(() => setDeploymentStatus(null));
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.services.deployment_rollback import rollback_deployment
 
 from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.kubernetes_deployment import KubernetesDeployment
 from app.models.project import Project
 from app.schemas.deployment import (
@@ -41,14 +43,31 @@ def deploy_project(
     project_id: int,
     request: KubernetesDeployRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
 
     if project is None:
         raise HTTPException(
             status_code=404,
             detail="Project not found",
         )
+
+    expected_image_name = f"nexus/project-{project.id}"
+    expected_application_name = f"nexus-project-{project.id}"
+
+    if (
+       request.image_name != expected_image_name
+       or request.application_name != expected_application_name
+       or request.namespace != "nexus"
+    ):
+       raise HTTPException(
+           status_code=400,
+           detail="Deployment configuration does not match the project",
+       )
 
     result = deploy_application(
         image_name=request.image_name,
@@ -88,8 +107,12 @@ def deploy_project(
 def get_project_deployments(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
 
     if project is None:
         raise HTTPException(
@@ -113,8 +136,12 @@ def rollback_project_deployment(
     project_id: int,
     deployment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
 
     if project is None:
         raise HTTPException(
@@ -143,8 +170,12 @@ def get_project_deployment_status(
     project_id: int,
     deployment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
 
     if project is None:
         raise HTTPException(
@@ -186,8 +217,12 @@ def get_project_deployment_health(
     project_id: int,
     deployment_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
 
     if project is None:
         raise HTTPException(

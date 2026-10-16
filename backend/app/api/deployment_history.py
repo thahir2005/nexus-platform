@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.models.deployment_pipeline_run import DeploymentPipelineRun
 from app.models.project import Project
 from app.schemas.deployment_pipeline_history import (
@@ -29,8 +31,13 @@ def get_db():
 def get_deployment_history(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == user.id)
+        .first()
+    )
 
     if project is None:
         raise HTTPException(

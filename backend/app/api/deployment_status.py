@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.db.session import SessionLocal
 from app.models.deployment_pipeline_run import DeploymentPipelineRun
 from app.models.project import Project
@@ -40,8 +42,13 @@ def get_db():
 def get_deployment_status_summary(
     project_id: int,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    project = db.get(Project, project_id)
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == user.id)
+        .first()
+    )
 
     if project is None:
         raise HTTPException(
@@ -82,12 +89,10 @@ def get_deployment_status_summary(
                 detail="Unable to verify Kubernetes deployment status",
             ) from exc
 
-    if pipeline.status == "gitops_pending":
-        gitops_status = (
-            "published"
-            if pipeline.gitops_revision
-            else "publication_recorded_revision_unavailable"
-        )
+    # Determine whether GitOps was used from the recorded revision.
+    # The pipeline status may become "deployed" after verification.
+    if pipeline.gitops_revision:
+        gitops_status = "published"
     else:
         gitops_status = "not_used"
 
@@ -136,6 +141,17 @@ def get_deployment_status_summary(
 
     else:
         deployment_state = "pending"
+
+    # Reconcile the stored pipeline status only after all live deployment
+    # checks, including GitOps revision verification, have succeeded.
+    if deployment_state == "deployed" and pipeline.status == "gitops_pending":
+        pipeline.status = "deployed"
+        pipeline.message = (
+            f"Deployment verified successfully; "
+            f"GitOps revision={pipeline.gitops_revision}"
+        )
+        db.commit()
+        db.refresh(pipeline)
 
     return DeploymentStatusResponse(
         project_id=project_id,

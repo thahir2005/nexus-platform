@@ -77,10 +77,22 @@ def request_status(kubernetes=None, argo=None):
         name="NEXUS",
     )
 
-    query = db.query.return_value
-    query.filter.return_value = query
-    query.order_by.return_value = query
-    query.first.return_value = pipeline
+    project = SimpleNamespace(
+        id=129,
+        owner_id=1,
+        name="NEXUS",
+    )
+
+    project_query = MagicMock()
+    project_query.filter.return_value = project_query
+    project_query.first.return_value = project
+
+    pipeline_query = MagicMock()
+    pipeline_query.filter.return_value = pipeline_query
+    pipeline_query.order_by.return_value = pipeline_query
+    pipeline_query.first.return_value = pipeline
+
+    db.query.side_effect = [project_query, pipeline_query]
 
     def override_get_db():
         yield db
@@ -136,6 +148,7 @@ def test_deployment_status_deployed():
 
     assert response.status_code == 200
     assert response.json()["deployment_state"] == "deployed"
+    assert response.json()["pipeline"]["status"] == "deployed"
 
 
 def test_deployment_status_pending_when_build_does_not_match():

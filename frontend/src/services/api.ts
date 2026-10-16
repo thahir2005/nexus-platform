@@ -1,4 +1,16 @@
 const API = "/api/v1";
+let tokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setTokenProvider(provider: () => Promise<string | null>) {
+  tokenProvider = provider;
+}
+
+async function authHeaders(extra?: HeadersInit): Promise<Headers> {
+  const headers = new Headers(extra);
+  const token = await tokenProvider?.();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
 
 export type Project = {
   id: number;
@@ -121,32 +133,77 @@ export type DeploymentResponse = {
   message: string;
 };
 
-async function get<T>(path: string): Promise<T> {
-  const response = await fetch(`${API}${path}`);
+async function readResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
 
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+  if (!text) {
+    return null;
   }
 
-  return response.json();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function errorMessage(body: unknown, status: number): string {
+  if (typeof body === "object" && body !== null && "detail" in body) {
+    const detail = (body as { detail?: unknown }).detail;
+
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+  }
+
+  if (typeof body === "string" && body.trim()) {
+    return body;
+  }
+
+  return `API request failed: ${status}`;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    ...init,
+    headers: await authHeaders(init.headers),
+  });
+
+  const body = await readResponseBody(response);
+
+  if (!response.ok) {
+    throw new ApiError(
+      errorMessage(body, response.status),
+      response.status,
+    );
+  }
+
+  return body as T;
+}
+
+async function get<T>(path: string): Promise<T> {
+  return request<T>(path);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
+  return request<T>(path, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.detail ?? `API request failed: ${response.status}`);
-  }
-
-  return data;
 }
 
 export type RollbackResponse = {
@@ -243,10 +300,7 @@ export const api = {
       `/projects/${projectId}/deployment-status`,
     );
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes("404")
-    ) {
+    if (error instanceof ApiError && error.status === 404) {
       return null;
     }
 
